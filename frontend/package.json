@@ -1,0 +1,23 @@
+{
+  "name": "smart-expense-tracker-ai-frontend",
+  "version": "1.0.0",
+  "description": "Smart Expense Tracker AI - Vanilla HTML5/CSS3/ES6+ SaaS Frontend",
+  "main": "index.html",
+  "scripts": {
+    "start": "py start_server.py",
+    "dev": "py start_server.py",
+    "serve": "py start_server.py"
+  },
+  "keywords": [
+    "expense-tracker",
+    "saas",
+    "fintech",
+    "vanilla-js",
+    "dashboard"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "serve": "^14.2.1"
+  }
+}

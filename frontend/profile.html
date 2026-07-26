@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>User Profile - Smart Expense Tracker AI</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <!-- Application Styles -->
+  <link rel="stylesheet" href="assets/css/variables.css">
+  <link rel="stylesheet" href="assets/css/main.css">
+  <link rel="stylesheet" href="assets/css/components.css">
+  <link rel="stylesheet" href="assets/css/pages.css">
+</head>
+<body>
+  <div class="app-container">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <a href="dashboard.html" class="brand">
+          <div class="brand-icon"><i class="fa-solid fa-brain"></i></div>
+          <span class="brand-text">Smart Expense AI</span>
+        </a>
+      </div>
+
+      <nav class="sidebar-nav">
+        <div class="nav-section-title">Main Navigation</div>
+        <a href="dashboard.html" class="nav-item">
+          <i class="fa-solid fa-chart-pie"></i>
+          <span>Dashboard</span>
+        </a>
+        <a href="expenses.html" class="nav-item">
+          <i class="fa-solid fa-receipt"></i>
+          <span>Expenses</span>
+        </a>
+        <a href="income.html" class="nav-item">
+          <i class="fa-solid fa-wallet"></i>
+          <span>Income</span>
+        </a>
+        <a href="budgets.html" class="nav-item">
+          <i class="fa-solid fa-sliders"></i>
+          <span>Budgets</span>
+        </a>
+        <a href="analytics.html" class="nav-item">
+          <i class="fa-solid fa-chart-line"></i>
+          <span>Analytics</span>
+        </a>
+
+        <div class="nav-section-title" style="margin-top: 1rem;">Intelligence</div>
+        <a href="ai-insights.html" class="nav-item">
+          <i class="fa-solid fa-wand-magic-sparkles"></i>
+          <span>AI Insights</span>
+        </a>
+        <a href="chat.html" class="nav-item">
+          <i class="fa-solid fa-comments"></i>
+          <span>AI Assistant</span>
+        </a>
+        <a href="notifications.html" class="nav-item">
+          <i class="fa-solid fa-bell"></i>
+          <span>Notifications</span>
+          <span class="nav-badge">3</span>
+        </a>
+
+        <div class="nav-section-title" style="margin-top: 1rem;">Preferences</div>
+        <a href="profile.html" class="nav-item active">
+          <i class="fa-solid fa-user"></i>
+          <span>Profile</span>
+        </a>
+        <a href="settings.html" class="nav-item">
+          <i class="fa-solid fa-gear"></i>
+          <span>Settings</span>
+        </a>
+        <a href="javascript:void(0)" onclick="Auth.logout()" class="nav-item" style="color: var(--danger);">
+          <i class="fa-solid fa-right-from-bracket" style="color: var(--danger);"></i>
+          <span>Logout</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="sidebar-user-avatar user-display-avatar">AM</div>
+        <div class="sidebar-user-info">
+          <div class="sidebar-user-name user-display-name">Alex Mercer</div>
+          <div class="sidebar-user-role user-display-role">alex.mercer@example.com</div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <div class="main-wrapper">
+      <header class="top-header">
+        <div class="header-left">
+          <button class="sidebar-toggle-btn" id="sidebarToggleBtn">
+            <i class="fa-solid fa-bars"></i>
+          </button>
+          <div class="breadcrumb-container">
+            <a href="dashboard.html">Home</a>
+            <i class="fa-solid fa-chevron-right breadcrumb-separator"></i>
+            <span style="color: var(--text-primary); font-weight: 600;">Profile Settings</span>
+          </div>
+        </div>
+
+        <div class="header-right">
+          <button class="header-action-btn" id="themeToggleBtn" title="Toggle Theme">
+            <i class="fa-solid fa-moon"></i>
+          </button>
+
+          <a href="notifications.html" class="header-action-btn" title="Notifications">
+            <i class="fa-solid fa-bell"></i>
+            <span class="notification-badge">3</span>
+          </a>
+
+          <div class="user-menu-wrapper">
+            <div class="user-menu-trigger" id="userMenuTrigger">
+              <div class="sidebar-user-avatar user-display-avatar" style="width: 34px; height: 34px; font-size: 0.85rem;">AM</div>
+              <span class="user-display-name" style="font-size: 0.875rem; font-weight: 600; display: none; @media(min-width: 768px){display:inline;}">Alex Mercer</span>
+              <i class="fa-solid fa-chevron-down" style="font-size: 0.75rem; color: var(--text-muted);"></i>
+            </div>
+
+            <div class="dropdown-menu" id="userDropdownMenu">
+              <a href="profile.html" class="dropdown-item"><i class="fa-solid fa-user"></i> My Profile</a>
+              <a href="settings.html" class="dropdown-item"><i class="fa-solid fa-gear"></i> App Settings</a>
+              <div class="dropdown-divider"></div>
+              <a href="javascript:void(0)" onclick="Auth.logout()" class="dropdown-item" style="color: var(--danger);"><i class="fa-solid fa-right-from-bracket"></i> Sign Out</a>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main class="main-content">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">User Profile & Account</h1>
+            <p class="page-subtitle">Manage your personal information, security credentials, and preferred currency.</p>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <!-- Update Profile Information Card -->
+          <div class="card">
+            <div class="card-header">
+              <h3 style="font-size: 1.1rem;">Personal Information</h3>
+            </div>
+            <form id="updateProfileForm">
+              <div class="form-group">
+                <label class="form-label" for="profileNameInput">Full Name</label>
+                <input type="text" id="profileNameInput" class="form-control" required>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="profileEmailInput">Email Address</label>
+                <input type="email" id="profileEmailInput" class="form-control" required>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="profilePhoneInput">Phone Number</label>
+                <input type="tel" id="profilePhoneInput" class="form-control" placeholder="+1 (555) 000-0000">
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="profileCurrencySelect">Preferred Currency</label>
+                <select id="profileCurrencySelect" class="form-control form-select">
+                  <option value="USD">USD ($) - US Dollar</option>
+                  <option value="EUR">EUR (€) - Euro</option>
+                  <option value="GBP">GBP (£) - British Pound</option>
+                  <option value="INR">INR (₹) - Indian Rupee</option>
+                  <option value="CAD">CAD (CA$) - Canadian Dollar</option>
+                </select>
+              </div>
+
+              <button type="submit" class="btn btn-primary" style="margin-top: 0.5rem;">
+                <i class="fa-solid fa-floppy-disk"></i> Save Profile Changes
+              </button>
+            </form>
+          </div>
+
+          <!-- Security & Change Password Card -->
+          <div class="card">
+            <div class="card-header">
+              <h3 style="font-size: 1.1rem;">Change Password</h3>
+            </div>
+            <form id="changePasswordForm">
+              <div class="form-group">
+                <label class="form-label" for="currentPassword">Current Password</label>
+                <input type="password" id="currentPassword" class="form-control" placeholder="••••••••" required>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="newPassword">New Password</label>
+                <input type="password" id="newPassword" class="form-control" placeholder="••••••••" required>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="confirmNewPassword">Confirm New Password</label>
+                <input type="password" id="confirmNewPassword" class="form-control" placeholder="••••••••" required>
+              </div>
+
+              <button type="submit" class="btn btn-secondary" style="margin-top: 0.5rem;">
+                <i class="fa-solid fa-key"></i> Update Password
+              </button>
+            </form>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <div class="toast-container"></div>
+
+  <!-- Scripts -->
+  <script src="assets/js/utils.js"></script>
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/auth.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script src="assets/js/profile.js"></script>
+</body>
+</html>

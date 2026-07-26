@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Expense Tracker AI - Financial Management SaaS</title>
+  <script>
+    // Redirect to dashboard or login based on auth state
+    const token = localStorage.getItem('auth_token');
+    if (token) {
+      window.location.href = 'dashboard.html';
+    } else {
+      window.location.href = 'login.html';
+    }
+  </script>
+</head>
+<body>
+  <p style="text-align: center; margin-top: 3rem; font-family: sans-serif;">Redirecting to Smart Expense Tracker AI...</p>
+</body>
+</html>
