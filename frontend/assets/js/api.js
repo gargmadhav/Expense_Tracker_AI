@@ -1,6 +1,9 @@
 /* API Service Layer & Mock Data Engine */
 
-const API_BASE_URL = 'http://localhost:8000/api/v1'; // Placeholder for backend FastAPI / Node.js API
+// API Endpoint Configuration (Configured via .env)
+const API_BASE_URL = (typeof window !== 'undefined' && window.ENV_API_BASE_URL) 
+  ? window.ENV_API_BASE_URL 
+  : 'http://localhost:8000/api/v1';
 
 // Seed Data Initializers - Cleaned Initial State
 const initialExpenses = [];
