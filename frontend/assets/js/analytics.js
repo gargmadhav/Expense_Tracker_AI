@@ -4,13 +4,13 @@ const AnalyticsPage = {
   async init() {
     try {
       const data = await API.getAnalytics();
-      this.renderSpendingTrendsChart(data.monthlySpendingTrends);
-      this.renderCategoryPieChart(data.categoryBreakdown);
-      this.renderIncomeVsExpenseChart(data.monthlySpendingTrends);
-      this.renderSavingsGrowthChart(data.savingsGrowth);
+      this.renderSpendingTrendsChart(data.monthlySpendingTrends || []);
+      this.renderCategoryPieChart(data.categoryBreakdown || {});
+      this.renderIncomeVsExpenseChart(data.monthlySpendingTrends || []);
+      this.renderSavingsGrowthChart(data.savingsGrowth || []);
     } catch (e) {
       console.error(e);
-      Utils.showToast('Failed to load analytics data', 'danger');
+      Utils.showToast(e.message || 'Failed to load analytics data', 'danger');
     }
   },
 
@@ -25,11 +25,19 @@ const AnalyticsPage = {
     canvas.width = width;
     canvas.height = height;
 
+    if (!trends || trends.length === 0) {
+      ctx.fillStyle = '#64748b';
+      ctx.font = '14px Inter';
+      ctx.textAlign = 'center';
+      ctx.fillText('No spending trends data available yet', width / 2, height / 2);
+      return;
+    }
+
     const padding = 40;
     const chartWidth = width - padding * 2;
     const chartHeight = height - padding * 2;
 
-    const maxVal = Math.max(...trends.map(t => Math.max(t.income, t.expense))) * 1.15;
+    const maxVal = Math.max(100, ...trends.map(t => Math.max(t.income || 0, t.expense || 0))) * 1.15;
 
     ctx.clearRect(0, 0, width, height);
 
@@ -49,8 +57,9 @@ const AnalyticsPage = {
     ctx.lineWidth = 3;
     ctx.beginPath();
     trends.forEach((t, index) => {
-      const x = padding + (chartWidth / (trends.length - 1)) * index;
-      const y = height - padding - (t.expense / maxVal) * chartHeight;
+      const divisor = Math.max(1, trends.length - 1);
+      const x = padding + (chartWidth / divisor) * index;
+      const y = height - padding - ((t.expense || 0) / maxVal) * chartHeight;
       if (index === 0) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
     });
@@ -58,8 +67,9 @@ const AnalyticsPage = {
 
     // Draw Dots & Labels
     trends.forEach((t, index) => {
-      const x = padding + (chartWidth / (trends.length - 1)) * index;
-      const y = height - padding - (t.expense / maxVal) * chartHeight;
+      const divisor = Math.max(1, trends.length - 1);
+      const x = padding + (chartWidth / divisor) * index;
+      const y = height - padding - ((t.expense || 0) / maxVal) * chartHeight;
 
       ctx.fillStyle = '#ef4444';
       ctx.beginPath();
@@ -70,7 +80,7 @@ const AnalyticsPage = {
       ctx.fillStyle = '#64748b';
       ctx.font = '12px Inter';
       ctx.textAlign = 'center';
-      ctx.fillText(t.month, x, height - 10);
+      ctx.fillText(t.month || '', x, height - 10);
     });
   },
 
@@ -85,7 +95,7 @@ const AnalyticsPage = {
     canvas.width = width;
     canvas.height = height;
 
-    const total = Object.values(categories).reduce((acc, curr) => acc + curr, 0);
+    const total = Object.values(categories).reduce((acc, curr) => acc + (curr || 0), 0);
     let startAngle = 0;
     const centerX = width / 2;
     const centerY = height / 2;
@@ -97,7 +107,6 @@ const AnalyticsPage = {
     if (legendContainer) legendContainer.innerHTML = '';
 
     if (total === 0) {
-      // Draw empty placeholder donut ring
       ctx.fillStyle = '#e2e8f0';
       ctx.beginPath();
       ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
@@ -118,7 +127,6 @@ const AnalyticsPage = {
       const sliceAngle = (amount / total) * 2 * Math.PI;
       const color = Utils.getCategoryColor(cat);
 
-      // Draw Slice
       ctx.fillStyle = color;
       ctx.beginPath();
       ctx.moveTo(centerX, centerY);
@@ -128,7 +136,6 @@ const AnalyticsPage = {
 
       startAngle += sliceAngle;
 
-      // Add to Legend
       if (legendContainer) {
         legendContainer.innerHTML += `
           <div class="legend-item">
@@ -139,7 +146,6 @@ const AnalyticsPage = {
       }
     });
 
-    // Donut hole
     ctx.fillStyle = document.documentElement.getAttribute('data-theme') === 'dark' ? '#111827' : '#ffffff';
     ctx.beginPath();
     ctx.arc(centerX, centerY, 60, 0, 2 * Math.PI);
@@ -157,11 +163,19 @@ const AnalyticsPage = {
     canvas.width = width;
     canvas.height = height;
 
+    if (!trends || trends.length === 0) {
+      ctx.fillStyle = '#64748b';
+      ctx.font = '14px Inter';
+      ctx.textAlign = 'center';
+      ctx.fillText('No income vs expense data available yet', width / 2, height / 2);
+      return;
+    }
+
     const padding = 40;
     const chartWidth = width - padding * 2;
     const chartHeight = height - padding * 2;
 
-    const maxVal = Math.max(...trends.map(t => Math.max(t.income, t.expense))) * 1.15;
+    const maxVal = Math.max(100, ...trends.map(t => Math.max(t.income || 0, t.expense || 0))) * 1.15;
     const groupWidth = chartWidth / trends.length;
     const barWidth = groupWidth * 0.3;
 
@@ -171,12 +185,12 @@ const AnalyticsPage = {
       const groupX = padding + i * groupWidth + groupWidth * 0.15;
 
       // Income Bar (Green)
-      const incHeight = (t.income / maxVal) * chartHeight;
+      const incHeight = ((t.income || 0) / maxVal) * chartHeight;
       ctx.fillStyle = '#10b981';
       ctx.fillRect(groupX, height - padding - incHeight, barWidth, incHeight);
 
       // Expense Bar (Red)
-      const expHeight = (t.expense / maxVal) * chartHeight;
+      const expHeight = ((t.expense || 0) / maxVal) * chartHeight;
       ctx.fillStyle = '#ef4444';
       ctx.fillRect(groupX + barWidth + 5, height - padding - expHeight, barWidth, expHeight);
 
@@ -184,7 +198,7 @@ const AnalyticsPage = {
       ctx.fillStyle = '#64748b';
       ctx.font = '12px Inter';
       ctx.textAlign = 'center';
-      ctx.fillText(t.month, groupX + barWidth, height - 10);
+      ctx.fillText(t.month || '', groupX + barWidth, height - 10);
     });
   },
 
@@ -199,15 +213,22 @@ const AnalyticsPage = {
     canvas.width = width;
     canvas.height = height;
 
+    if (!savings || savings.length === 0) {
+      ctx.fillStyle = '#64748b';
+      ctx.font = '14px Inter';
+      ctx.textAlign = 'center';
+      ctx.fillText('No savings growth data available yet', width / 2, height / 2);
+      return;
+    }
+
     const padding = 40;
     const chartWidth = width - padding * 2;
     const chartHeight = height - padding * 2;
 
-    const maxVal = Math.max(...savings.map(s => s.balance)) * 1.2;
+    const maxVal = Math.max(100, ...savings.map(s => s.amount || s.balance || 0)) * 1.2;
 
     ctx.clearRect(0, 0, width, height);
 
-    // Gradient Fill
     const gradient = ctx.createLinearGradient(0, padding, 0, height - padding);
     gradient.addColorStop(0, 'rgba(99, 102, 241, 0.4)');
     gradient.addColorStop(1, 'rgba(99, 102, 241, 0.0)');
@@ -215,8 +236,9 @@ const AnalyticsPage = {
     ctx.fillStyle = gradient;
     ctx.beginPath();
     savings.forEach((s, index) => {
-      const x = padding + (chartWidth / (savings.length - 1)) * index;
-      const y = height - padding - (s.balance / maxVal) * chartHeight;
+      const divisor = Math.max(1, savings.length - 1);
+      const x = padding + (chartWidth / divisor) * index;
+      const y = height - padding - (((s.amount || s.balance || 0)) / maxVal) * chartHeight;
       if (index === 0) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
     });
@@ -230,8 +252,9 @@ const AnalyticsPage = {
     ctx.lineWidth = 3;
     ctx.beginPath();
     savings.forEach((s, index) => {
-      const x = padding + (chartWidth / (savings.length - 1)) * index;
-      const y = height - padding - (s.balance / maxVal) * chartHeight;
+      const divisor = Math.max(1, savings.length - 1);
+      const x = padding + (chartWidth / divisor) * index;
+      const y = height - padding - (((s.amount || s.balance || 0)) / maxVal) * chartHeight;
       if (index === 0) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
     });
@@ -239,11 +262,12 @@ const AnalyticsPage = {
 
     // Labels
     savings.forEach((s, index) => {
-      const x = padding + (chartWidth / (savings.length - 1)) * index;
+      const divisor = Math.max(1, savings.length - 1);
+      const x = padding + (chartWidth / divisor) * index;
       ctx.fillStyle = '#64748b';
       ctx.font = '12px Inter';
       ctx.textAlign = 'center';
-      ctx.fillText(s.month, x, height - 10);
+      ctx.fillText(s.month || '', x, height - 10);
     });
   }
 };

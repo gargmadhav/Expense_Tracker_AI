@@ -7,24 +7,42 @@ const BudgetsPage = {
   },
 
   async init() {
-    this.bindForm();
+    this.bindForms();
     await this.loadBudgets();
   },
 
   async loadBudgets() {
     try {
-      this.state.budgets = await API.getBudgets();
+      // Fetch user's budgets and dashboard data for accurate spent amounts
+      const budgetsRes = await API.getBudgets();
+      const dashData = await API.getDashboardData();
+      
+      const budgetStatuses = dashData.budget_status || [];
+      const statusMap = {};
+      budgetStatuses.forEach(bs => {
+        statusMap[bs.category] = bs.spent || 0;
+      });
+
+      this.state.budgets = (budgetsRes || []).map(b => ({
+        id: b.id,
+        category: b.category,
+        allocated: b.monthly_limit,
+        spent: statusMap[b.category] !== undefined ? statusMap[b.category] : 0,
+        month: b.month,
+        year: b.year
+      }));
+
       this.renderBudgetsList();
       this.renderOverallSummary();
     } catch (e) {
       console.error(e);
-      Utils.showToast('Failed to load budgets', 'danger');
+      Utils.showToast(e.message || 'Failed to load budgets', 'danger');
     }
   },
 
   renderOverallSummary() {
-    const totalAllocated = this.state.budgets.reduce((acc, b) => acc + parseFloat(b.allocated), 0);
-    const totalSpent = this.state.budgets.reduce((acc, b) => acc + parseFloat(b.spent), 0);
+    const totalAllocated = this.state.budgets.reduce((acc, b) => acc + parseFloat(b.allocated || 0), 0);
+    const totalSpent = this.state.budgets.reduce((acc, b) => acc + parseFloat(b.spent || 0), 0);
     const remaining = totalAllocated - totalSpent;
     const currency = Utils.storage.get('user_profile', {}).currency || 'USD';
 
@@ -40,6 +58,20 @@ const BudgetsPage = {
   renderBudgetsList() {
     const container = document.getElementById('categoryBudgetsGrid');
     if (!container) return;
+
+    if (!this.state.budgets || this.state.budgets.length === 0) {
+      container.innerHTML = `
+        <div style="grid-column: 1 / -1;" class="empty-state">
+          <i class="fa-solid fa-wallet empty-state-icon"></i>
+          <div class="empty-state-title">No Category Budgets Configured</div>
+          <div class="empty-state-text">Create monthly spending limits to track and manage your finances.</div>
+          <button class="btn btn-primary btn-sm" onclick="BudgetsPage.openAddModal()">
+            <i class="fa-solid fa-plus"></i> Add New Budget
+          </button>
+        </div>
+      `;
+      return;
+    }
 
     const currency = Utils.storage.get('user_profile', {}).currency || 'USD';
 
@@ -87,8 +119,11 @@ const BudgetsPage = {
             </div>
           </div>
 
-          <div style="border-top: 1px solid var(--border-color); padding-top: 0.85rem; display: flex; justify-content: flex-end;">
-            <button class="btn btn-outline btn-sm" onclick="BudgetsPage.openEditModal('${b.id}', '${b.category}', ${b.allocated})">
+          <div style="border-top: 1px solid var(--border-color); padding-top: 0.85rem; display: flex; justify-content: space-between; align-items: center;">
+            <button class="btn btn-outline btn-sm" style="color: var(--danger); border-color: transparent;" onclick="BudgetsPage.deleteBudget(${b.id})" title="Delete Budget">
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
+            <button class="btn btn-outline btn-sm" onclick="BudgetsPage.openEditModal(${b.id}, '${b.category}', ${b.allocated})">
               <i class="fa-solid fa-sliders"></i> Adjust Budget
             </button>
           </div>
@@ -97,23 +132,75 @@ const BudgetsPage = {
     }).join('');
   },
 
-  bindForm() {
-    const form = document.getElementById('editBudgetForm');
-    if (form) {
-      form.addEventListener('submit', async (e) => {
+  bindForms() {
+    // Add Budget Form
+    const addForm = document.getElementById('addBudgetForm');
+    if (addForm) {
+      addForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const category = document.getElementById('addBgtCategory').value;
+        const amount = document.getElementById('addBgtAllocated').value;
+        const submitBtn = addForm.querySelector('button[type="submit"]');
+
+        if (!category || !amount || amount <= 0) {
+          Utils.showToast('Please enter a valid category and amount.', 'warning');
+          return;
+        }
+
+        const origHtml = submitBtn.innerHTML;
+        try {
+          submitBtn.disabled = true;
+          submitBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Saving...`;
+
+          await API.createBudget({ category, monthly_limit: parseFloat(amount) });
+          Utils.showToast('Budget allocation created!', 'success');
+          this.closeModal('addBudgetModal');
+          await this.loadBudgets();
+        } catch (err) {
+          Utils.showToast(err.message || 'Failed to create budget.', 'danger');
+        } finally {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = origHtml;
+        }
+      });
+    }
+
+    // Edit Budget Form
+    const editForm = document.getElementById('editBudgetForm');
+    if (editForm) {
+      editForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const amount = document.getElementById('bgtAllocatedInput').value;
+        const submitBtn = editForm.querySelector('button[type="submit"]');
+
         if (!amount || amount <= 0) {
           Utils.showToast('Please enter a valid amount.', 'warning');
           return;
         }
 
-        await API.updateBudget(this.state.editingBudgetId, amount);
-        Utils.showToast('Budget allocation updated!', 'success');
-        this.closeModal('editBudgetModal');
-        await this.loadBudgets();
+        const origHtml = submitBtn.innerHTML;
+        try {
+          submitBtn.disabled = true;
+          submitBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Updating...`;
+
+          await API.updateBudget(this.state.editingBudgetId, { monthly_limit: parseFloat(amount) });
+          Utils.showToast('Budget allocation updated!', 'success');
+          this.closeModal('editBudgetModal');
+          await this.loadBudgets();
+        } catch (err) {
+          Utils.showToast(err.message || 'Failed to update budget.', 'danger');
+        } finally {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = origHtml;
+        }
       });
     }
+  },
+
+  openAddModal() {
+    const form = document.getElementById('addBudgetForm');
+    if (form) form.reset();
+    this.showModal('addBudgetModal');
   },
 
   openEditModal(id, category, currentAmount) {
@@ -121,6 +208,18 @@ const BudgetsPage = {
     document.getElementById('bgtCategoryName').textContent = category;
     document.getElementById('bgtAllocatedInput').value = currentAmount;
     this.showModal('editBudgetModal');
+  },
+
+  async deleteBudget(id) {
+    if (confirm('Are you sure you want to delete this category budget?')) {
+      try {
+        await API.deleteBudget(id);
+        Utils.showToast('Budget entry removed.', 'info');
+        await this.loadBudgets();
+      } catch (err) {
+        Utils.showToast(err.message || 'Failed to delete budget.', 'danger');
+      }
+    }
   },
 
   showModal(modalId) {

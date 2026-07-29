@@ -1,0 +1,23 @@
+# Byte-compiled / optimized files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment variables
+.env
+
+# Virtual environment
+.venv/
+venv/
+ENV/
+
+# Database / SQLite temporary files
+*.db
+*.sqlite3
+
+# Alembic
+alembic/versions/*.pyc
+
+# IDE / Editor files
+.vscode/
+.idea/

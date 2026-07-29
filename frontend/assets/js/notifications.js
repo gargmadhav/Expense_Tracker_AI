@@ -17,7 +17,7 @@ const NotificationsPage = {
       this.renderList();
     } catch (e) {
       console.error(e);
-      Utils.showToast('Failed to load notifications', 'danger');
+      Utils.showToast(e.message || 'Failed to load notifications', 'danger');
     }
   },
 
@@ -55,7 +55,7 @@ const NotificationsPage = {
             </div>
           </div>
           ${!n.read ? `
-            <button class="btn btn-outline btn-sm" onclick="NotificationsPage.markAsRead('${n.id}')">
+            <button class="btn btn-outline btn-sm" onclick="NotificationsPage.markAsRead(${n.id})">
               Mark Read
             </button>
           ` : ''}
@@ -77,12 +77,23 @@ const NotificationsPage = {
   },
 
   async markAsRead(id) {
-    let notifs = Utils.storage.get('notifications', []);
-    notifs = notifs.map(n => n.id === id ? { ...n, read: true } : n);
-    Utils.storage.set('notifications', notifs);
-    this.state.notifications = notifs;
-    Utils.showToast('Notification marked as read', 'info');
-    this.renderList();
+    try {
+      await API.markNotificationRead(id);
+      Utils.showToast('Notification marked as read', 'info');
+      await this.loadNotifications();
+    } catch (e) {
+      Utils.showToast(e.message || 'Failed to update notification', 'danger');
+    }
+  },
+
+  async markAllAsRead() {
+    try {
+      await API.markAllNotificationsRead();
+      Utils.showToast('All notifications marked as read', 'success');
+      await this.loadNotifications();
+    } catch (e) {
+      Utils.showToast(e.message || 'Failed to update notifications', 'danger');
+    }
   }
 };
 

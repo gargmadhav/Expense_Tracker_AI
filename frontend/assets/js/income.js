@@ -19,7 +19,7 @@ const IncomePage = {
       this.renderTotalSummary();
     } catch (e) {
       console.error(e);
-      Utils.showToast('Error loading income history', 'danger');
+      Utils.showToast(e.message || 'Error loading income history', 'danger');
     }
   },
 
@@ -39,7 +39,7 @@ const IncomePage = {
   },
 
   renderTotalSummary() {
-    const total = this.state.incomeList.reduce((acc, curr) => acc + parseFloat(curr.amount), 0);
+    const total = (this.state.incomeList || []).reduce((acc, curr) => acc + parseFloat(curr.amount || 0), 0);
     const currency = Utils.storage.get('user_profile', {}).currency || 'USD';
     const totalEl = document.getElementById('incomeTotalVal');
     if (totalEl) totalEl.textContent = Utils.formatCurrency(total, currency);
@@ -49,7 +49,7 @@ const IncomePage = {
     const tbody = document.getElementById('incomeTableBody');
     if (!tbody) return;
 
-    if (this.state.incomeList.length === 0) {
+    if (!this.state.incomeList || this.state.incomeList.length === 0) {
       tbody.innerHTML = `
         <tr>
           <td colspan="5" class="empty-state">
@@ -69,7 +69,7 @@ const IncomePage = {
         <td>
           <div style="display: flex; align-items: center; gap: 0.75rem;">
             <div class="card-icon-box card-icon-success" style="width: 36px; height: 36px; font-size: 0.95rem;">
-              <i class="fa-solid ${Utils.getCategoryIcon(item.category)}"></i>
+              <i class="fa-solid ${Utils.getCategoryIcon(item.source)}"></i>
             </div>
             <div>
               <div style="font-weight: 600;">${item.source}</div>
@@ -77,13 +77,13 @@ const IncomePage = {
             </div>
           </div>
         </td>
-        <td><span class="category-badge">${item.category}</span></td>
-        <td>${Utils.formatDate(item.date)}</td>
+        <td><span class="category-badge">${item.source}</span></td>
+        <td>${Utils.formatDate(item.transaction_date || item.date)}</td>
         <td style="font-weight: 700; color: var(--success);">
           +${Utils.formatCurrency(item.amount, currency)}
         </td>
         <td>
-          <button class="btn btn-outline btn-sm btn-icon" onclick="IncomePage.openDeleteModal('${item.id}')" title="Delete Income" style="color: var(--danger);">
+          <button class="btn btn-outline btn-sm btn-icon" onclick="IncomePage.openDeleteModal(${item.id})" title="Delete Income" style="color: var(--danger);">
             <i class="fa-solid fa-trash-can"></i>
           </button>
         </td>
@@ -96,22 +96,39 @@ const IncomePage = {
     if (form) {
       form.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const source = document.getElementById('incSource').value;
+        const source = document.getElementById('incSource').value.trim();
         const amount = document.getElementById('incAmount').value;
-        const category = document.getElementById('incCategory').value;
-        const date = document.getElementById('incDate').value;
-        const description = document.getElementById('incDescription').value;
+        const dateVal = document.getElementById('incDate').value;
+        const descriptionEl = document.getElementById('incDescription');
+        const description = descriptionEl ? descriptionEl.value.trim() : '';
+        const submitBtn = form.querySelector('button[type="submit"]');
 
-        if (!source || !amount || !category || !date) {
+        if (!source || !amount || !dateVal) {
           Utils.showToast('Please fill in required fields.', 'warning');
           return;
         }
 
-        await API.createIncome({ source, amount, category, date, description });
-        Utils.showToast('Income entry created successfully!', 'success');
+        const origBtnHtml = submitBtn.innerHTML;
+        try {
+          submitBtn.disabled = true;
+          submitBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Saving...`;
 
-        this.closeModal('incomeModal');
-        await this.loadIncome();
+          await API.createIncome({
+            source,
+            amount: parseFloat(amount),
+            transaction_date: dateVal,
+            description
+          });
+
+          Utils.showToast('Income entry created successfully!', 'success');
+          this.closeModal('incomeModal');
+          await this.loadIncome();
+        } catch (err) {
+          Utils.showToast(err.message || 'Failed to create income entry.', 'danger');
+        } finally {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = origBtnHtml;
+        }
       });
     }
 
@@ -119,10 +136,14 @@ const IncomePage = {
     if (confirmDeleteBtn) {
       confirmDeleteBtn.addEventListener('click', async () => {
         if (this.state.deletingId) {
-          await API.deleteIncome(this.state.deletingId);
-          Utils.showToast('Income entry removed.', 'info');
-          this.closeModal('deleteIncomeModal');
-          await this.loadIncome();
+          try {
+            await API.deleteIncome(this.state.deletingId);
+            Utils.showToast('Income entry removed.', 'info');
+            this.closeModal('deleteIncomeModal');
+            await this.loadIncome();
+          } catch (err) {
+            Utils.showToast(err.message || 'Failed to delete income.', 'danger');
+          }
         }
       });
     }

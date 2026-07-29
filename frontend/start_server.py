@@ -4,7 +4,8 @@ import webbrowser
 import threading
 import time
 
-PORTS_TO_TRY = [8000, 8001, 8002, 3000, 5000]
+# Avoid port 8000 as it is reserved for the FastAPI Backend server
+PORTS_TO_TRY = [5500, 3000, 8001, 8080, 5000]
 
 class ReusableTCPServer(socketserver.TCPServer):
     allow_reuse_address = True
@@ -19,7 +20,7 @@ if __name__ == "__main__":
     Handler = http.server.SimpleHTTPRequestHandler
     
     httpd = None
-    selected_port = 8000
+    selected_port = 5500
 
     for port in PORTS_TO_TRY:
         try:
@@ -36,6 +37,7 @@ if __name__ == "__main__":
         print("==================================================")
         print(" Smart Expense Tracker AI Frontend Server Started")
         print(f" Running at: http://localhost:{selected_port}")
+        print(" Backend API expected at: http://127.0.0.1:8000")
         print(" Opening Chrome / Default Browser automatically...")
         print("==================================================")
         try:

@@ -8,18 +8,42 @@ const Auth = {
     this.checkSession();
   },
 
-  checkSession() {
-    const isAuthPage = window.location.pathname.includes('login.html') || 
-                       window.location.pathname.includes('signup.html') || 
-                       window.location.pathname.includes('forgot-password.html');
+  async checkSession() {
+    const path = window.location.pathname;
+    const isAuthPage = path.includes('login.html') || 
+                       path.includes('signup.html') || 
+                       path.includes('forgot-password.html');
     
-    const userToken = Utils.storage.get('auth_token');
+    const userToken = API.getToken();
 
     // Protect application routes
     if (!userToken && !isAuthPage) {
       window.location.href = 'login.html';
-    } else if (userToken && isAuthPage) {
+      return;
+    }
+
+    if (userToken && isAuthPage) {
       window.location.href = 'dashboard.html';
+      return;
+    }
+
+    // If logged in on protected page, populate user name/email in UI if element exists
+    if (userToken && !isAuthPage) {
+      try {
+        const user = await API.getMe();
+        if (user) {
+          Utils.storage.set('user_profile', {
+            name: user.full_name,
+            email: user.email,
+            currency: 'USD'
+          });
+          
+          const userNameEls = document.querySelectorAll('.user-profile-name, .user-name');
+          userNameEls.forEach(el => el.textContent = user.full_name);
+        }
+      } catch (e) {
+        console.warn('Session validation warning:', e.message);
+      }
     }
   },
 
@@ -29,29 +53,44 @@ const Auth = {
 
     loginForm.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const email = document.getElementById('loginEmail').value;
-      const password = document.getElementById('loginPassword').value;
+      const emailInput = document.getElementById('loginEmail');
+      const passwordInput = document.getElementById('loginPassword');
+      const submitBtn = loginForm.querySelector('button[type="submit"]');
+
+      const email = emailInput.value.trim();
+      const password = passwordInput.value;
 
       if (!email || !password) {
         Utils.showToast('Please enter your email and password.', 'warning');
         return;
       }
 
-      // Simulate Authentication API call
-      Utils.showToast('Signing in...', 'info');
-      await API._delay(500);
+      const origBtnHtml = submitBtn.innerHTML;
+      try {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Signing in...`;
+        Utils.showToast('Signing in...', 'info');
 
-      Utils.storage.set('auth_token', 'mock_jwt_token_xyz123');
-      Utils.storage.set('user_profile', {
-        name: 'Alex Mercer',
-        email: email,
-        currency: 'USD'
-      });
+        const loginRes = await API.login({ email, password });
+        if (loginRes && loginRes.access_token) {
+          const user = await API.getMe();
+          Utils.storage.set('user_profile', {
+            name: user.full_name,
+            email: user.email,
+            currency: 'USD'
+          });
 
-      Utils.showToast('Login successful! Redirecting...', 'success');
-      setTimeout(() => {
-        window.location.href = 'dashboard.html';
-      }, 800);
+          Utils.showToast('Login successful! Redirecting...', 'success');
+          setTimeout(() => {
+            window.location.href = 'dashboard.html';
+          }, 600);
+        }
+      } catch (err) {
+        Utils.showToast(err.message || 'Login failed. Please check your credentials.', 'danger');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = origBtnHtml;
+      }
     });
   },
 
@@ -61,26 +100,55 @@ const Auth = {
 
     signupForm.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const name = document.getElementById('signupName').value;
-      const email = document.getElementById('signupEmail').value;
-      const password = document.getElementById('signupPassword').value;
-      const confirm = document.getElementById('signupConfirmPassword').value;
+      const nameInput = document.getElementById('signupName');
+      const emailInput = document.getElementById('signupEmail');
+      const passwordInput = document.getElementById('signupPassword');
+      const confirmInput = document.getElementById('signupConfirmPassword');
+      const submitBtn = signupForm.querySelector('button[type="submit"]');
+
+      const name = nameInput.value.trim();
+      const email = emailInput.value.trim();
+      const password = passwordInput.value;
+      const confirm = confirmInput.value;
+
+      if (!name || !email || !password) {
+        Utils.showToast('Please fill in all required fields.', 'warning');
+        return;
+      }
+
+      if (password.length < 8) {
+        Utils.showToast('Password must be at least 8 characters long.', 'warning');
+        return;
+      }
 
       if (password !== confirm) {
         Utils.showToast('Passwords do not match.', 'danger');
         return;
       }
 
-      Utils.showToast('Creating your account...', 'info');
-      await API._delay(600);
+      const origBtnHtml = submitBtn.innerHTML;
+      try {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Creating account...`;
+        Utils.showToast('Creating your account...', 'info');
 
-      Utils.storage.set('auth_token', 'mock_jwt_token_xyz123');
-      Utils.storage.set('user_profile', { name, email, currency: 'USD' });
+        await API.register({ full_name: name, email, password });
+        
+        // Auto-login after registration
+        await API.login({ email, password });
+        const user = await API.getMe();
+        Utils.storage.set('user_profile', { name: user.full_name, email: user.email, currency: 'USD' });
 
-      Utils.showToast('Account created successfully!', 'success');
-      setTimeout(() => {
-        window.location.href = 'dashboard.html';
-      }, 800);
+        Utils.showToast('Account created successfully! Redirecting...', 'success');
+        setTimeout(() => {
+          window.location.href = 'dashboard.html';
+        }, 600);
+      } catch (err) {
+        Utils.showToast(err.message || 'Account registration failed.', 'danger');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = origBtnHtml;
+      }
     });
   },
 
@@ -90,22 +158,19 @@ const Auth = {
 
     forgotForm.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const email = document.getElementById('resetEmail').value;
+      const email = document.getElementById('resetEmail').value.trim();
 
       if (!email) {
         Utils.showToast('Please enter your email address.', 'warning');
         return;
       }
 
-      Utils.showToast('Sending password reset instructions...', 'info');
-      await API._delay(600);
-
-      Utils.showToast('Reset instructions sent to your email!', 'success');
+      Utils.showToast('Reset instructions sent to your email!', 'info');
     });
   },
 
   logout() {
-    Utils.storage.remove('auth_token');
+    API.removeToken();
     Utils.showToast('Logged out successfully.', 'info');
     setTimeout(() => {
       window.location.href = 'login.html';

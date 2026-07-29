@@ -33,12 +33,12 @@ const ExpensesPage = {
   async loadExpenses() {
     this.renderSkeletons();
     try {
-      const result = await API.getExpenses();
-      this.state.expenses = result.expenses;
+      const result = await API.getExpenses(this.state.categoryFilter);
+      this.state.expenses = result.expenses || [];
       this.applyFilters();
     } catch (e) {
       console.error(e);
-      Utils.showToast('Failed to load expenses list.', 'danger');
+      Utils.showToast(e.message || 'Failed to load expenses list.', 'danger');
     }
   },
 
@@ -58,6 +58,34 @@ const ExpensesPage = {
     }
   },
 
+  bindSearchAndFilters() {
+    const searchInput = document.getElementById('expenseSearchInput');
+    if (searchInput) {
+      searchInput.addEventListener('input', Utils.debounce((e) => {
+        this.state.searchQuery = e.target.value.trim();
+        this.state.currentPage = 1;
+        this.applyFilters();
+      }, 300));
+    }
+
+    const categorySelect = document.getElementById('expenseCategoryFilter');
+    if (categorySelect) {
+      categorySelect.addEventListener('change', async (e) => {
+        this.state.categoryFilter = e.target.value;
+        this.state.currentPage = 1;
+        await this.loadExpenses();
+      });
+    }
+
+    const sortSelect = document.getElementById('expenseSortSelect');
+    if (sortSelect) {
+      sortSelect.addEventListener('change', (e) => {
+        this.state.sortBy = e.target.value;
+        this.applyFilters();
+      });
+    }
+  },
+
   applyFilters() {
     let result = [...this.state.expenses];
 
@@ -65,23 +93,20 @@ const ExpensesPage = {
     if (this.state.searchQuery) {
       const q = this.state.searchQuery.toLowerCase();
       result = result.filter(exp => 
-        exp.title.toLowerCase().includes(q) || 
-        exp.category.toLowerCase().includes(q) ||
-        (exp.paymentMethod && exp.paymentMethod.toLowerCase().includes(q))
+        (exp.title && exp.title.toLowerCase().includes(q)) || 
+        (exp.category && exp.category.toLowerCase().includes(q)) ||
+        (exp.description && exp.description.toLowerCase().includes(q))
       );
-    }
-
-    // Category Filter
-    if (this.state.categoryFilter !== 'All') {
-      result = result.filter(exp => exp.category === this.state.categoryFilter);
     }
 
     // Sorting
     result.sort((a, b) => {
+      const dateA = new Date(a.transaction_date || a.date);
+      const dateB = new Date(b.transaction_date || b.date);
       if (this.state.sortBy === 'amount-high') return b.amount - a.amount;
       if (this.state.sortBy === 'amount-low') return a.amount - b.amount;
-      if (this.state.sortBy === 'date-new') return new Date(b.date) - new Date(a.date);
-      if (this.state.sortBy === 'date-old') return new Date(a.date) - new Date(b.date);
+      if (this.state.sortBy === 'date-new') return dateB - dateA;
+      if (this.state.sortBy === 'date-old') return dateA - dateB;
       return 0;
     });
 
@@ -123,22 +148,22 @@ const ExpensesPage = {
             </div>
             <div>
               <div style="font-weight: 600;">${item.title}</div>
-              <div style="font-size: 0.75rem; color: var(--text-muted);">${item.paymentMethod || 'Debit Card'}</div>
+              <div style="font-size: 0.75rem; color: var(--text-muted);">${item.description || 'Completed'}</div>
             </div>
           </div>
         </td>
         <td><span class="category-badge">${item.category}</span></td>
-        <td>${Utils.formatDate(item.date)}</td>
+        <td>${Utils.formatDate(item.transaction_date || item.date)}</td>
         <td style="font-weight: 700; color: var(--danger);">
           -${Utils.formatCurrency(item.amount, currency)}
         </td>
-        <td><span class="status-badge status-completed">${item.status || 'completed'}</span></td>
+        <td><span class="status-badge status-completed">completed</span></td>
         <td>
           <div style="display: flex; gap: 0.35rem;">
-            <button class="btn btn-outline btn-sm btn-icon" onclick="ExpensesPage.openEditModal('${item.id}')" title="Edit Expense">
+            <button class="btn btn-outline btn-sm btn-icon" onclick="ExpensesPage.openEditModal(${item.id})" title="Edit Expense">
               <i class="fa-solid fa-pen-to-square"></i>
             </button>
-            <button class="btn btn-outline btn-sm btn-icon" onclick="ExpensesPage.openDeleteModal('${item.id}')" title="Delete Expense" style="color: var(--danger);">
+            <button class="btn btn-outline btn-sm btn-icon" onclick="ExpensesPage.openDeleteModal(${item.id})" title="Delete Expense" style="color: var(--danger);">
               <i class="fa-solid fa-trash-can"></i>
             </button>
           </div>
@@ -151,65 +176,39 @@ const ExpensesPage = {
     const container = document.getElementById('expensePagination');
     if (!container) return;
 
-    const totalPages = Math.ceil(this.state.filteredExpenses.length / this.state.itemsPerPage) || 1;
-    let buttons = '';
-
-    for (let i = 1; i <= totalPages; i++) {
-      buttons += `<button class="page-btn ${i === this.state.currentPage ? 'active' : ''}" onclick="ExpensesPage.goToPage(${i})">${i}</button>`;
+    const totalPages = Math.ceil(this.state.filteredExpenses.length / this.state.itemsPerPage);
+    if (totalPages <= 1) {
+      container.innerHTML = '';
+      return;
     }
 
-    container.innerHTML = `
-      <div style="font-size: 0.85rem; color: var(--text-muted);">
-        Showing ${Math.min((this.state.currentPage - 1) * this.state.itemsPerPage + 1, this.state.filteredExpenses.length)} to ${Math.min(this.state.currentPage * this.state.itemsPerPage, this.state.filteredExpenses.length)} of ${this.state.filteredExpenses.length} expenses
-      </div>
-      <div class="pagination-pages">
-        <button class="page-btn" ${this.state.currentPage === 1 ? 'disabled style="opacity:0.5;cursor:not-allowed;"' : ''} onclick="ExpensesPage.goToPage(${this.state.currentPage - 1})">
-          <i class="fa-solid fa-chevron-left"></i>
-        </button>
-        ${buttons}
-        <button class="page-btn" ${this.state.currentPage === totalPages ? 'disabled style="opacity:0.5;cursor:not-allowed;"' : ''} onclick="ExpensesPage.goToPage(${this.state.currentPage + 1})">
-          <i class="fa-solid fa-chevron-right"></i>
-        </button>
-      </div>
+    let html = `
+      <button class="pagination-item" ${this.state.currentPage === 1 ? 'disabled' : ''} onclick="ExpensesPage.goToPage(${this.state.currentPage - 1})">
+        <i class="fa-solid fa-chevron-left"></i>
+      </button>
     `;
+
+    for (let i = 1; i <= totalPages; i++) {
+      html += `
+        <button class="pagination-item ${i === this.state.currentPage ? 'active' : ''}" onclick="ExpensesPage.goToPage(${i})">
+          ${i}
+        </button>
+      `;
+    }
+
+    html += `
+      <button class="pagination-item" ${this.state.currentPage === totalPages ? 'disabled' : ''} onclick="ExpensesPage.goToPage(${this.state.currentPage + 1})">
+        <i class="fa-solid fa-chevron-right"></i>
+      </button>
+    `;
+
+    container.innerHTML = html;
   },
 
   goToPage(page) {
-    const totalPages = Math.ceil(this.state.filteredExpenses.length / this.state.itemsPerPage);
-    if (page >= 1 && page <= totalPages) {
-      this.state.currentPage = page;
-      this.renderTable();
-      this.renderPagination();
-    }
-  },
-
-  bindSearchAndFilters() {
-    const searchInput = document.getElementById('expenseSearchInput');
-    const categorySelect = document.getElementById('expenseCategoryFilter');
-    const sortSelect = document.getElementById('expenseSortSelect');
-
-    if (searchInput) {
-      searchInput.addEventListener('input', Utils.debounce((e) => {
-        this.state.searchQuery = e.target.value;
-        this.state.currentPage = 1;
-        this.applyFilters();
-      }, 300));
-    }
-
-    if (categorySelect) {
-      categorySelect.addEventListener('change', (e) => {
-        this.state.categoryFilter = e.target.value;
-        this.state.currentPage = 1;
-        this.applyFilters();
-      });
-    }
-
-    if (sortSelect) {
-      sortSelect.addEventListener('change', (e) => {
-        this.state.sortBy = e.target.value;
-        this.applyFilters();
-      });
-    }
+    this.state.currentPage = page;
+    this.renderTable();
+    this.renderPagination();
   },
 
   bindModals() {
@@ -217,29 +216,45 @@ const ExpensesPage = {
     if (form) {
       form.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const title = document.getElementById('expTitle').value;
+        const title = document.getElementById('expTitle').value.trim();
         const amount = document.getElementById('expAmount').value;
         const category = document.getElementById('expCategory').value;
-        const date = document.getElementById('expDate').value;
-        const paymentMethod = document.getElementById('expPaymentMethod').value;
+        const dateVal = document.getElementById('expDate').value;
+        const submitBtn = form.querySelector('button[type="submit"]');
 
-        if (!title || !amount || !category || !date) {
+        if (!title || !amount || !category || !dateVal) {
           Utils.showToast('Please fill in all required fields.', 'warning');
           return;
         }
 
-        const data = { title, amount: parseFloat(amount), category, date, paymentMethod };
+        const origBtnHtml = submitBtn.innerHTML;
+        try {
+          submitBtn.disabled = true;
+          submitBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Saving...`;
 
-        if (this.state.editingId) {
-          await API.updateExpense(this.state.editingId, data);
-          Utils.showToast('Expense updated successfully!', 'success');
-        } else {
-          await API.createExpense(data);
-          Utils.showToast('Expense added successfully!', 'success');
+          const payload = {
+            title,
+            amount: parseFloat(amount),
+            category,
+            transaction_date: dateVal
+          };
+
+          if (this.state.editingId) {
+            await API.updateExpense(this.state.editingId, payload);
+            Utils.showToast('Expense updated successfully!', 'success');
+          } else {
+            await API.createExpense(payload);
+            Utils.showToast('Expense added successfully!', 'success');
+          }
+
+          this.closeModal('expenseModal');
+          await this.loadExpenses();
+        } catch (err) {
+          Utils.showToast(err.message || 'Error saving expense entry.', 'danger');
+        } finally {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = origBtnHtml;
         }
-
-        this.closeModal('expenseModal');
-        await this.loadExpenses();
       });
     }
 
@@ -247,10 +262,14 @@ const ExpensesPage = {
     if (confirmDeleteBtn) {
       confirmDeleteBtn.addEventListener('click', async () => {
         if (this.state.deletingId) {
-          await API.deleteExpense(this.state.deletingId);
-          Utils.showToast('Expense deleted.', 'info');
-          this.closeModal('deleteModal');
-          await this.loadExpenses();
+          try {
+            await API.deleteExpense(this.state.deletingId);
+            Utils.showToast('Expense record deleted.', 'info');
+            this.closeModal('deleteModal');
+            await this.loadExpenses();
+          } catch (err) {
+            Utils.showToast(err.message || 'Failed to delete expense.', 'danger');
+          }
         }
       });
     }
@@ -265,16 +284,15 @@ const ExpensesPage = {
   },
 
   openEditModal(id) {
-    const item = this.state.expenses.find(e => e.id === id);
-    if (!item) return;
+    const expense = this.state.expenses.find(item => item.id == id);
+    if (!expense) return;
 
     this.state.editingId = id;
     document.getElementById('expenseModalTitle').textContent = 'Edit Expense';
-    document.getElementById('expTitle').value = item.title;
-    document.getElementById('expAmount').value = item.amount;
-    document.getElementById('expCategory').value = item.category;
-    document.getElementById('expDate').value = item.date;
-    document.getElementById('expPaymentMethod').value = item.paymentMethod || 'Credit Card';
+    document.getElementById('expTitle').value = expense.title;
+    document.getElementById('expAmount').value = expense.amount;
+    document.getElementById('expCategory').value = expense.category;
+    document.getElementById('expDate').value = expense.transaction_date || expense.date;
 
     this.showModal('expenseModal');
   },
