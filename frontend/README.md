@@ -1,6 +1,3 @@
-<img width="1891" height="1027" alt="{4E7593A1-48AB-477E-BAFB-A30782D3DF4E}" src="https://github.com/user-attachments/assets/4d9f2edd-ae04-4bc5-b1b9-811038b81dc3" />
-
-
 
 # Smart Expense Tracker AI - Frontend Application
 
