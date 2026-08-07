@@ -3,7 +3,8 @@
 const BudgetsPage = {
   state: {
     budgets: [],
-    editingBudgetId: null
+    editingBudgetId: null,
+    editingCategory: null
   },
 
   async init() {
@@ -12,22 +13,33 @@ const BudgetsPage = {
   },
 
   async loadBudgets() {
+    this.renderSkeletons();
     try {
       // Fetch user's budgets and dashboard data for accurate spent amounts
       const budgetsRes = await API.getBudgets();
-      const dashData = await API.getDashboardData();
-      
-      const budgetStatuses = dashData.budget_status || [];
+      let budgetStatuses = [];
+
+      try {
+        const dashData = await API.getDashboardData();
+        if (dashData && dashData.budget_status) {
+          budgetStatuses = dashData.budget_status;
+        }
+      } catch (err) {
+        console.warn('Dashboard budget status warning:', err.message);
+      }
+
       const statusMap = {};
       budgetStatuses.forEach(bs => {
         statusMap[bs.category] = bs.spent || 0;
       });
 
-      this.state.budgets = (budgetsRes || []).map(b => ({
+      const budgetList = Array.isArray(budgetsRes) ? budgetsRes : [];
+
+      this.state.budgets = budgetList.map(b => ({
         id: b.id,
         category: b.category,
-        allocated: b.monthly_limit,
-        spent: statusMap[b.category] !== undefined ? statusMap[b.category] : 0,
+        allocated: parseFloat(b.monthly_limit || b.allocated || 0),
+        spent: statusMap[b.category] !== undefined ? parseFloat(statusMap[b.category]) : 0,
         month: b.month,
         year: b.year
       }));
@@ -35,14 +47,46 @@ const BudgetsPage = {
       this.renderBudgetsList();
       this.renderOverallSummary();
     } catch (e) {
-      console.error(e);
+      console.error('Error loading budgets:', e);
       Utils.showToast(e.message || 'Failed to load budgets', 'danger');
+      this.renderEmptyState();
     }
   },
 
+  renderSkeletons() {
+    const container = document.getElementById('categoryBudgetsGrid');
+    if (container) {
+      container.innerHTML = Array(3).fill(`
+        <div class="card">
+          <div class="card-header">
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+              <div class="skeleton" style="width: 40px; height: 40px; border-radius: 8px;"></div>
+              <div>
+                <div class="skeleton" style="height: 18px; width: 100px; margin-bottom: 4px;"></div>
+                <div class="skeleton" style="height: 12px; width: 60px;"></div>
+              </div>
+            </div>
+          </div>
+          <div style="margin: 1rem 0;">
+            <div class="skeleton" style="height: 14px; width: 100%; margin-bottom: 8px;"></div>
+            <div class="skeleton" style="height: 10px; width: 100%; border-radius: 5px;"></div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    const allocatedEl = document.getElementById('totalBudgetAllocated');
+    const spentEl = document.getElementById('totalBudgetSpent');
+    const remainingEl = document.getElementById('totalBudgetRemaining');
+
+    if (allocatedEl) allocatedEl.innerHTML = `<div class="skeleton" style="height: 28px; width: 90px;"></div>`;
+    if (spentEl) spentEl.innerHTML = `<div class="skeleton" style="height: 28px; width: 90px;"></div>`;
+    if (remainingEl) remainingEl.innerHTML = `<div class="skeleton" style="height: 28px; width: 90px;"></div>`;
+  },
+
   renderOverallSummary() {
-    const totalAllocated = this.state.budgets.reduce((acc, b) => acc + parseFloat(b.allocated || 0), 0);
-    const totalSpent = this.state.budgets.reduce((acc, b) => acc + parseFloat(b.spent || 0), 0);
+    const totalAllocated = this.state.budgets.reduce((acc, b) => acc + (b.allocated || 0), 0);
+    const totalSpent = this.state.budgets.reduce((acc, b) => acc + (b.spent || 0), 0);
     const remaining = totalAllocated - totalSpent;
     const currency = Utils.storage.get('user_profile', {}).currency || 'USD';
 
@@ -55,11 +99,9 @@ const BudgetsPage = {
     if (remainingEl) remainingEl.textContent = Utils.formatCurrency(remaining > 0 ? remaining : 0, currency);
   },
 
-  renderBudgetsList() {
+  renderEmptyState() {
     const container = document.getElementById('categoryBudgetsGrid');
-    if (!container) return;
-
-    if (!this.state.budgets || this.state.budgets.length === 0) {
+    if (container) {
       container.innerHTML = `
         <div style="grid-column: 1 / -1;" class="empty-state">
           <i class="fa-solid fa-wallet empty-state-icon"></i>
@@ -70,13 +112,23 @@ const BudgetsPage = {
           </button>
         </div>
       `;
+    }
+  },
+
+  renderBudgetsList() {
+    const container = document.getElementById('categoryBudgetsGrid');
+    if (!container) return;
+
+    if (!this.state.budgets || this.state.budgets.length === 0) {
+      this.renderEmptyState();
       return;
     }
 
     const currency = Utils.storage.get('user_profile', {}).currency || 'USD';
 
     container.innerHTML = this.state.budgets.map(b => {
-      const percentage = Math.min(Math.round((b.spent / b.allocated) * 100), 100);
+      const allocated = b.allocated || 1;
+      const percentage = Math.min(Math.round((b.spent / allocated) * 100), 100);
       const remaining = b.allocated - b.spent;
       
       let progressClass = 'progress-bar-success';
@@ -89,6 +141,8 @@ const BudgetsPage = {
         progressClass = 'progress-bar-warning';
         statusBadge = `<span class="status-badge status-pending">Warning (75%+)</span>`;
       }
+
+      const escapedCategory = String(b.category).replace(/'/g, "\\'");
 
       return `
         <div class="card">
@@ -123,7 +177,7 @@ const BudgetsPage = {
             <button class="btn btn-outline btn-sm" style="color: var(--danger); border-color: transparent;" onclick="BudgetsPage.deleteBudget(${b.id})" title="Delete Budget">
               <i class="fa-solid fa-trash-can"></i>
             </button>
-            <button class="btn btn-outline btn-sm" onclick="BudgetsPage.openEditModal(${b.id}, '${b.category}', ${b.allocated})">
+            <button class="btn btn-outline btn-sm" onclick="BudgetsPage.openEditModal(${b.id}, '${escapedCategory}', ${b.allocated})">
               <i class="fa-solid fa-sliders"></i> Adjust Budget
             </button>
           </div>
@@ -142,7 +196,7 @@ const BudgetsPage = {
         const amount = document.getElementById('addBgtAllocated').value;
         const submitBtn = addForm.querySelector('button[type="submit"]');
 
-        if (!category || !amount || amount <= 0) {
+        if (!category || !amount || parseFloat(amount) <= 0) {
           Utils.showToast('Please enter a valid category and amount.', 'warning');
           return;
         }
@@ -152,12 +206,28 @@ const BudgetsPage = {
           submitBtn.disabled = true;
           submitBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Saving...`;
 
-          await API.createBudget({ category, monthly_limit: parseFloat(amount) });
-          Utils.showToast('Budget allocation created!', 'success');
+          try {
+            await API.createBudget({ category, monthly_limit: parseFloat(amount) });
+            Utils.showToast('Budget allocation created!', 'success');
+          } catch (err) {
+            // If budget already exists for category, find existing budget and update limit
+            if (err.message && err.message.toLowerCase().includes('already exists')) {
+              const existing = this.state.budgets.find(b => b.category === category);
+              if (existing) {
+                await API.updateBudget(existing.id, { monthly_limit: parseFloat(amount) });
+                Utils.showToast(`Updated existing ${category} budget!`, 'success');
+              } else {
+                throw err;
+              }
+            } else {
+              throw err;
+            }
+          }
+
           this.closeModal('addBudgetModal');
           await this.loadBudgets();
         } catch (err) {
-          Utils.showToast(err.message || 'Failed to create budget.', 'danger');
+          Utils.showToast(err.message || 'Failed to save budget.', 'danger');
         } finally {
           submitBtn.disabled = false;
           submitBtn.innerHTML = origHtml;
@@ -173,7 +243,7 @@ const BudgetsPage = {
         const amount = document.getElementById('bgtAllocatedInput').value;
         const submitBtn = editForm.querySelector('button[type="submit"]');
 
-        if (!amount || amount <= 0) {
+        if (!amount || parseFloat(amount) <= 0) {
           Utils.showToast('Please enter a valid amount.', 'warning');
           return;
         }
@@ -183,7 +253,12 @@ const BudgetsPage = {
           submitBtn.disabled = true;
           submitBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Updating...`;
 
-          await API.updateBudget(this.state.editingBudgetId, { monthly_limit: parseFloat(amount) });
+          if (this.state.editingBudgetId) {
+            await API.updateBudget(this.state.editingBudgetId, { monthly_limit: parseFloat(amount) });
+          } else if (this.state.editingCategory) {
+            await API.createBudget({ category: this.state.editingCategory, monthly_limit: parseFloat(amount) });
+          }
+          
           Utils.showToast('Budget allocation updated!', 'success');
           this.closeModal('editBudgetModal');
           await this.loadBudgets();
@@ -205,8 +280,14 @@ const BudgetsPage = {
 
   openEditModal(id, category, currentAmount) {
     this.state.editingBudgetId = id;
-    document.getElementById('bgtCategoryName').textContent = category;
-    document.getElementById('bgtAllocatedInput').value = currentAmount;
+    this.state.editingCategory = category;
+    
+    const catNameEl = document.getElementById('bgtCategoryName');
+    const allocInput = document.getElementById('bgtAllocatedInput');
+    
+    if (catNameEl) catNameEl.textContent = category;
+    if (allocInput) allocInput.value = currentAmount || 0;
+    
     this.showModal('editBudgetModal');
   },
 
@@ -234,7 +315,7 @@ const BudgetsPage = {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
-  if (window.location.pathname.includes('budgets.html')) {
+  if (window.location.pathname.includes('budgets')) {
     BudgetsPage.init();
   }
 });
