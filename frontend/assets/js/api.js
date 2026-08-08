@@ -341,50 +341,16 @@ const API = {
     return await this.request('/notifications/read-all', { method: 'PUT' });
   },
 
-  /* ------------------- AI INSIGHTS & CHAT APIS ------------------- */
+  /* ------------------- GROQ AI LLM ENGINE APIS ------------------- */
   async getAIInsights() {
-    const dash = await this.getDashboardData();
-    const balance = dash.balance || 0;
-    const totalExp = dash.total_expense || 0;
-
-    let healthScore = 85;
-    if (balance < 0) healthScore = 45;
-    else if (totalExp > dash.total_income * 0.8) healthScore = 65;
-
-    return {
-      financialSummary: `Your current net balance is $${balance.toFixed(2)}. Spending velocity is ${healthScore >= 75 ? 'optimal' : 'elevated'}.`,
-      healthScore,
-      recommendations: [
-        { title: "Optimize Grocery Spending", impact: "High", description: "Consolidating supermarket trips could save up to $120 monthly." },
-        { title: "Review Subscriptions", impact: "Medium", description: "Cancel unused recurring digital services to improve monthly headroom." }
-      ],
-      alerts: (dash.budget_status || []).filter(b => b.is_exceeded || b.usage_percentage >= 85).map(b => ({
-        title: `Budget Alert: ${b.category}`,
-        message: `Category ${b.category} has reached ${b.usage_percentage}% of its allocated $${b.monthly_limit} limit.`
-      }))
-    };
+    return await this.request('/ai/insights', { method: 'GET' });
   },
 
   async sendChatMessage(messageText) {
-    const dash = await this.getDashboardData();
-    const text = messageText.toLowerCase();
-    let reply = `I have analyzed your financial records. Your total income is $${dash.total_income.toFixed(2)} and total expense is $${dash.total_expense.toFixed(2)}. Your current net balance is $${dash.balance.toFixed(2)}.`;
-
-    if (text.includes('budget')) {
-      const exceeded = (dash.budget_status || []).filter(b => b.is_exceeded);
-      if (exceeded.length > 0) {
-        reply = `You have exceeded budgets in: ${exceeded.map(b => b.category).join(', ')}.`;
-      } else {
-        reply = `All your category budgets are currently on track!`;
-      }
-    } else if (text.includes('save') || text.includes('saving')) {
-      reply = `To boost savings, consider setting stricter monthly caps on high-velocity categories.`;
-    }
-
-    return {
-      response: reply,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    };
+    return await this.request('/ai/chat', {
+      method: 'POST',
+      body: { message: messageText }
+    });
   }
 };
 

@@ -7,7 +7,7 @@ from app.core.config import settings
 from app.middleware.error_handler import register_error_handlers
 from app.middleware.request_logger import RequestTimingMiddleware
 from app.middleware.security_headers import SecurityHeadersMiddleware
-from app.routers import auth, expenses, income, budgets, dashboard, analytics, notifications
+from app.routers import auth, expenses, income, budgets, dashboard, analytics, notifications, ai
 
 # Configure clean logging format for backend server
 logging.basicConfig(
@@ -28,11 +28,11 @@ def create_application() -> FastAPI:
         redoc_url="/redoc",
     )
 
-    # Add custom middlewares
+    # Register custom middlewares
     application.add_middleware(RequestTimingMiddleware)
     application.add_middleware(SecurityHeadersMiddleware)
 
-    # Configure CORS middleware to allow requests from any frontend port
+    # Configure CORS middleware
     application.add_middleware(
         CORSMiddleware,
         allow_origins=settings.ALLOWED_ORIGINS,
@@ -52,7 +52,8 @@ def create_application() -> FastAPI:
         budgets.router,
         dashboard.router,
         analytics.router,
-        notifications.router
+        notifications.router,
+        ai.router
     ]
     for r in routers:
         application.include_router(r)

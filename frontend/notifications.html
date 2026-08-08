@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en" data-theme="light">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,8 +9,10 @@
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
-  
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap"
+    rel="stylesheet">
+
   <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
@@ -19,6 +22,7 @@
   <link rel="stylesheet" href="assets/css/components.css">
   <link rel="stylesheet" href="assets/css/pages.css">
 </head>
+
 <body>
   <div class="app-container">
     <!-- Sidebar Navigation Drawer -->
@@ -65,7 +69,7 @@
         <a href="notifications.html" class="nav-item active">
           <i class="fa-solid fa-bell"></i>
           <span>Notifications</span>
-          <span class="nav-badge">3</span>
+          <span class="nav-badge"></span>
         </a>
 
         <div class="nav-section-title" style="margin-top: 1rem;">Preferences</div>
@@ -119,8 +123,11 @@
 
           <div class="user-menu-wrapper">
             <div class="user-menu-trigger" id="userMenuTrigger">
-              <div class="sidebar-user-avatar user-display-avatar" style="width: 34px; height: 34px; font-size: 0.85rem;">AM</div>
-              <span class="user-display-name user-profile-name" style="font-size: 0.875rem; font-weight: 600; display: none; @media(min-width: 768px){display:inline;}">Alex Mercer</span>
+              <div class="sidebar-user-avatar user-display-avatar"
+                style="width: 34px; height: 34px; font-size: 0.85rem;">AM</div>
+              <span class="user-display-name user-profile-name"
+                style="font-size: 0.875rem; font-weight: 600; display: none; @media(min-width: 768px){display:inline;}">Alex
+                Mercer</span>
               <i class="fa-solid fa-chevron-down" style="font-size: 0.75rem; color: var(--text-muted);"></i>
             </div>
 
@@ -128,7 +135,8 @@
               <a href="profile.html" class="dropdown-item"><i class="fa-solid fa-user"></i> My Profile</a>
               <a href="settings.html" class="dropdown-item"><i class="fa-solid fa-gear"></i> App Settings</a>
               <div class="dropdown-divider"></div>
-              <a href="javascript:void(0)" onclick="Auth.logout()" class="dropdown-item" style="color: var(--danger);"><i class="fa-solid fa-right-from-bracket"></i> Sign Out</a>
+              <a href="javascript:void(0)" onclick="Auth.logout()" class="dropdown-item"
+                style="color: var(--danger);"><i class="fa-solid fa-right-from-bracket"></i> Sign Out</a>
             </div>
           </div>
         </div>
@@ -169,4 +177,5 @@
   <script src="assets/js/app.js"></script>
   <script src="assets/js/notifications.js"></script>
 </body>
+
 </html>
