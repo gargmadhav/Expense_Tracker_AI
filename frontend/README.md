@@ -21,6 +21,7 @@ Typography: Google Fonts (Plus Jakarta Sans & Inter)
 Charts: Custom HTML5 Canvas & SVG engine
 Dependencies: No React, Angular, Vue, Bootstrap, jQuery, or Tailwind
 Directory & File Structure
+
 frontend/
 ├── index.html              # Main entry point & session router
 ├── login.html               # Login page
@@ -59,6 +60,8 @@ frontend/
         ├── notifications.js                  # Notification feed & filters
         ├── profile.js                          # Profile form handling
         └── settings.js                          # Settings & theme radios
+
+        
 How to Run
 
 The frontend expects the backend API to be running (see ../backend/README.md) — it will not function correctly without it, since data is fetched live via REST.
@@ -67,9 +70,11 @@ Method 1: Python (recommended)
 bash
 cd frontend
 py start_server.py
+
 Method 2: Node.js / npm
 bash
 cd frontend
 npm start
+
 Method 3: Direct browser launch
 Open frontend/index.html or frontend/login.html directly in a modern browser. 
