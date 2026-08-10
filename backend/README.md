@@ -1,36 +1,55 @@
-# Smart Expense Tracker AI - Backend (Phase 1 Foundation)
+# Smart Expense Tracker AI — Backend
 
-Production-ready FastAPI backend foundation for the Smart Expense Tracker AI application.
+FastAPI backend powering the Smart Expense Tracker AI application: authentication, transaction management, budgeting, analytics, an AI financial assistant, and OCR-based receipt scanning.
 
 ## Directory Structure
 
 ```
 backend/
 ├── app/
-│   ├── main.py               # Application entrypoint & health endpoint
+│   ├── main.py                # Application entrypoint, router registration, health endpoint
 │   ├── core/
-│   │   ├── config.py         # Application settings via Pydantic
-│   │   └── database.py       # SQLAlchemy engine & session dependency
-│   ├── models/               # SQLAlchemy ORM models
-│   ├── schemas/              # Pydantic schemas
-│   ├── routers/              # API router endpoints
-│   ├── services/             # Core business logic
-│   ├── utils/                # Helper utilities
-│   └── middleware/
-│       └── error_handler.py  # Structured error handling & custom exceptions
-├── alembic/                  # Database migration scripts
-├── alembic.ini               # Alembic configuration
-├── .env                      # Local environment configuration
-├── .env.example              # Environment variables template
-├── requirements.txt          # Python dependencies
+│   │   ├── config.py          # Application settings via Pydantic (env-driven)
+│   │   ├── database.py        # SQLAlchemy engine & session dependency
+│   │   └── security.py        # Password hashing & JWT helpers
+│   ├── models/                # SQLAlchemy ORM models (user, expense, income, budget, notification)
+│   ├── schemas/                # Pydantic request/response schemas
+│   ├── routers/                # API endpoints (auth, expenses, income, budgets, dashboard, analytics, ai, ocr, notifications)
+│   ├── services/                # Business logic layer (ai.py, analytics.py, dashboard.py, notification.py, ocr.py)
+│   ├── middleware/
+│   │   ├── error_handler.py    # Structured error handling & custom exceptions
+│   │   ├── request_logger.py   # Request timing middleware
+│   │   └── security_headers.py # Security response headers
+│   └── utils/                  # Helper utilities
+├── alembic/                    # Database migration scripts
+├── alembic.ini                 # Alembic configuration
+├── test_*.py                   # Test scripts for backend, transactions, dashboard/budget, analytics/notifications, frontend integration
+├── .env.example                 # Environment variables template
+├── requirements.txt             # Python dependencies
 └── README.md
 ```
+
+## API Overview
+
+All routes are registered both at root and under `/api/v1`. Full interactive documentation is available at `/docs` (Swagger) and `/redoc` once the server is running.
+
+| Router | Responsibility |
+|---|---|
+| `auth` | Signup, login, JWT issuance |
+| `expenses` | CRUD for expense transactions |
+| `income` | CRUD for income entries |
+| `budgets` | Category budget configuration & threshold tracking |
+| `dashboard` | Aggregated financial overview (income, expenses, savings, remaining budget) |
+| `analytics` | Spending trends, category breakdowns, income vs. expense, savings growth |
+| `ai` | Groq-LLM-powered chat assistant and financial insights, using live user transaction data as context |
+| `ocr` | Receipt/bill image upload → parsed transaction data |
+| `notifications` | Budget alerts and system notification feed |
 
 ## Quick Start
 
 ### 1. Environment Setup
 
-Create and activate Python virtual environment:
+Create and activate a Python virtual environment:
 
 ```bash
 # Windows
@@ -50,32 +69,47 @@ pip install -r requirements.txt
 
 ### 3. Configure Environment Variables
 
-Copy `.env.example` to `.env` and configure your PostgreSQL database credentials:
+Copy `.env.example` to `.env` and fill in your values:
 
 ```ini
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/expense_tracker_db
 SECRET_KEY=your_secret_key
+JWT_ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=30
 ENVIRONMENT=development
+
+# Required for AI chat & insights
+GROQ_API_KEY=your_groq_api_key
+GROQ_MODEL=llama-3.3-70b-versatile
+
+# Optional — only needed if Tesseract isn't on your system PATH
+TESSERACT_CMD_PATH=
 ```
 
-### 4. Run Migration Commands (Alembic)
+> Note: `GROQ_API_KEY` is required for the AI chat and insights endpoints to function — without it, those routes will fail even though the rest of the API works normally.
+
+### 4. Run Database Migrations (Alembic)
 
 ```bash
 alembic revision --autogenerate -m "Initial migration"
 alembic upgrade head
 ```
 
-### 5. Run FastAPI Server
+### 5. Run the FastAPI Server
 
 ```bash
 uvicorn app.main:app --reload --port 8000
 ```
 
-Access API docs at [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
-Health check endpoint at [http://127.0.0.1:8000/health](http://127.0.0.1:8000/health)
+- API docs: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
+- Health check: [http://127.0.0.1:8000/health](http://127.0.0.1:8000/health)
 
-### 6. Run Foundation Test
+### 6. Run Tests
 
 ```bash
 python test_backend.py
+python test_transactions.py
+python test_dashboard_budget.py
+python test_analytics_notifications.py
+python test_frontend_integration.py
 ```
