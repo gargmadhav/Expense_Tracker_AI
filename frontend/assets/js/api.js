@@ -67,11 +67,17 @@ const API = {
         }
       }
 
-      // Parse JSON response body if present
+      // Parse response body safely (HTTP 204 and 205 have no response body)
       let data = null;
-      const contentType = response.headers.get('content-type');
-      if (contentType && contentType.includes('application/json')) {
-        data = await response.json();
+      if (response.status !== 204 && response.status !== 205) {
+        const text = await response.text();
+        if (text && text.trim().length > 0) {
+          try {
+            data = JSON.parse(text);
+          } catch (e) {
+            console.warn('Failed to parse response body as JSON:', e);
+          }
+        }
       }
 
       if (!response.ok) {
