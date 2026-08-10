@@ -72,4 +72,4 @@ bash
 cd frontend
 npm start
 Method 3: Direct browser launch
-Open frontend/index.html or frontend/login.html directly in a modern browser.
+Open frontend/index.html or frontend/login.html directly in a modern browser. 
