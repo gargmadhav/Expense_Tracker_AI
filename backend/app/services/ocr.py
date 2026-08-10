@@ -332,7 +332,7 @@ class OCRService:
             tx_type = "income"
         elif any(kw in raw_text_lower for kw in ['restaurant', 'cafe', 'coffee', 'pizza', 'burger', 'food', 'dining', 'baking', 'kitchen']):
             category = "Food & Dining"
-        elif any(kw in raw_text_lower for kw in ['grocery', 'supermarket', 'mart', 'market', 'vegetable', 'fruit', 'walmart', 'store', 'blink commerce', 'blinkit']):
+        elif any(kw in raw_text_lower for kw in ['grocery', 'supermarket', 'mart', 'market', 'vegetable', 'fruit', 'store']):
             category = "Groceries"
         elif any(kw in raw_text_lower for kw in ['electric', 'water', 'internet', 'power', 'utility', 'gas', 'bill', 'mobile']):
             category = "Utilities"
@@ -343,9 +343,9 @@ class OCRService:
         elif any(kw in raw_text_lower for kw in ['hospital', 'pharmacy', 'doctor', 'medical', 'clinic', 'health']):
             category = "Healthcare"
 
-        # Detect currency from raw document text
-        detected_currency = "INR"
-        if any(sym in raw_text_lower for sym in ['₹', 'rs', 'inr', 'rupees', 'blink commerce', 'pvt ltd', 'limited', 'delhi', 'mumbai', 'bengaluru', 'india', 'gurugram', 'noida']):
+        # Detect currency from raw document text symbols & ISO codes
+        detected_currency = "USD"
+        if any(sym in raw_text_lower for sym in ['₹', 'rs', 'inr', 'rupees', 'pvt ltd', 'ltd', 'india']):
             detected_currency = "INR"
         elif any(sym in raw_text_lower for sym in ['€', 'eur', 'euro']):
             detected_currency = "EUR"
@@ -353,6 +353,10 @@ class OCRService:
             detected_currency = "GBP"
         elif any(sym in raw_text_lower for sym in ['ca$', 'cad']):
             detected_currency = "CAD"
+        elif any(sym in raw_text_lower for sym in ['a$', 'aud']):
+            detected_currency = "AUD"
+        elif '$' in raw_text_lower:
+            detected_currency = "USD"
         elif any(sym in raw_text_lower for sym in ['a$', 'aud']):
             detected_currency = "AUD"
         elif '$' in raw_text_lower:
