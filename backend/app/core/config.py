@@ -30,6 +30,11 @@ class Settings(BaseSettings):
     ALLOWED_OCR_EXTENSIONS: list[str] = ["png", "jpg", "jpeg", "webp", "pdf", "bmp", "tiff"]
     MAX_OCR_FILE_SIZE_MB: int = 10
 
+    # Exchange Rate API Settings
+    EXCHANGE_RATE_API_URL: str = "https://open.er-api.com/v6/latest/USD"
+    EXCHANGE_RATE_FALLBACK_URL: str = "https://api.exchangerate-api.com/v4/latest/USD"
+    EXCHANGE_RATE_CACHE_TTL: int = 3600
+
     # Environment
     ENVIRONMENT: str = "development"
 

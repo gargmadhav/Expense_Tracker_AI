@@ -118,6 +118,7 @@ class OCRService:
                 "Analyze the uploaded receipt/bill image carefully and extract these keys as a single JSON object:\n"
                 "- 'title': Merchant name or vendor\n"
                 "- 'amount': Final total amount paid (float, e.g. 45.99)\n"
+                "- 'currency': Currency ISO code (e.g. 'INR', 'EUR', 'GBP', 'USD', 'CAD', 'JPY', 'AUD'). Look for symbols like ₹, $, €, £ or keywords like Rs, INR, EUR, USD\n"
                 "- 'category': One of ['Food & Dining', 'Groceries', 'Housing', 'Utilities', 'Transportation', 'Entertainment', 'Shopping', 'Healthcare', 'Salary', 'Freelance', 'Investments', 'Other']\n"
                 "- 'transaction_date': Date formatted as YYYY-MM-DD\n"
                 "- 'type': 'expense' or 'income'\n"
@@ -150,9 +151,11 @@ class OCRService:
                         data = json.loads(raw_json)
 
                         logger.info(f"Groq Vision OCR success with model {model_name}")
+                        cur = (data.get("currency") or "INR").upper().strip()
                         return ParsedReceiptData(
                             title=data.get("title") or "Scanned Receipt",
                             amount=float(data.get("amount")) if data.get("amount") is not None else None,
+                            currency=cur,
                             category=data.get("category") or "Shopping",
                             transaction_date=data.get("transaction_date") or datetime.now().strftime("%Y-%m-%d"),
                             type=data.get("type", "expense").lower(),
@@ -217,6 +220,7 @@ class OCRService:
             "Extract structured financial data into a single raw JSON object with these keys:\n"
             "- 'title': (string) Merchant name, vendor name, or income source.\n"
             "- 'amount': (float) Final total amount paid or received (e.g. 45.99). Exclude subtotals or taxes.\n"
+            "- 'currency': (string) ISO currency code (e.g. 'INR', 'EUR', 'GBP', 'USD', 'CAD', 'JPY', 'AUD'). Look for symbols like ₹, $, €, £ or keywords like Rs, INR, EUR, USD.\n"
             "- 'category': (string) One of: 'Food & Dining', 'Groceries', 'Housing', 'Utilities', 'Transportation', 'Entertainment', 'Shopping', 'Healthcare', 'Salary', 'Freelance', 'Investments', 'Other'.\n"
             "- 'transaction_date': (string) Date formatted strictly as YYYY-MM-DD.\n"
             "- 'type': (string) Either 'expense' or 'income'.\n"
@@ -242,10 +246,12 @@ class OCRService:
 
             raw_json = completion.choices[0].message.content.strip()
             data = json.loads(raw_json)
+            cur = (data.get("currency") or "INR").upper().strip()
 
             return ParsedReceiptData(
                 title=data.get("title") or "Scanned Receipt",
                 amount=float(data.get("amount")) if data.get("amount") is not None else None,
+                currency=cur,
                 category=data.get("category") or "Shopping",
                 transaction_date=data.get("transaction_date") or datetime.now().strftime("%Y-%m-%d"),
                 type=data.get("type", "expense").lower(),
@@ -271,9 +277,9 @@ class OCRService:
 
         amount = None
         amount_patterns = [
-            r'(?:total|total amount|amount due|grand total|net amount|net pay|paid|val|bal|usd|inr|\$|₹|€|£)\s*[:=\-]?\s*([0-9]+\.[0-9]{2})',
-            r'([0-9]+\.[0-9]{2})\s*(?:total|paid|usd|inr|\$|₹|€|£)',
-            r'\b([0-9]+\.[0-9]{2})\b'
+            r'(?:total|total amount|amount due|grand total|net amount|net pay|paid|val|bal|usd|inr|rs\.?|₹|\$|€|£)\s*[:=\-]?\s*[₹\$€£\s]*([0-9,]+\.[0-9]{2})',
+            r'[₹\$€£\s]*([0-9,]+\.[0-9]{2})\s*(?:total|paid|usd|inr|rs\.?|₹|\$|€|£)',
+            r'\b([0-9,]+\.[0-9]{2})\b'
         ]
 
         found_amounts: List[float] = []
@@ -283,7 +289,7 @@ class OCRService:
                 matches = re.findall(pattern, line_lower)
                 for m in matches:
                     try:
-                        val = float(m)
+                        val = float(m.replace(',', ''))
                         if 0.01 <= val <= 100000.0:
                             if any(kw in line_lower for kw in ['total', 'due', 'amount', 'net', 'paid', 'grand', 'pay']):
                                 found_amounts.insert(0, val)
@@ -326,7 +332,7 @@ class OCRService:
             tx_type = "income"
         elif any(kw in raw_text_lower for kw in ['restaurant', 'cafe', 'coffee', 'pizza', 'burger', 'food', 'dining', 'baking', 'kitchen']):
             category = "Food & Dining"
-        elif any(kw in raw_text_lower for kw in ['grocery', 'supermarket', 'mart', 'market', 'vegetable', 'fruit', 'walmart', 'store']):
+        elif any(kw in raw_text_lower for kw in ['grocery', 'supermarket', 'mart', 'market', 'vegetable', 'fruit', 'walmart', 'store', 'blink commerce', 'blinkit']):
             category = "Groceries"
         elif any(kw in raw_text_lower for kw in ['electric', 'water', 'internet', 'power', 'utility', 'gas', 'bill', 'mobile']):
             category = "Utilities"
@@ -337,11 +343,27 @@ class OCRService:
         elif any(kw in raw_text_lower for kw in ['hospital', 'pharmacy', 'doctor', 'medical', 'clinic', 'health']):
             category = "Healthcare"
 
+        # Detect currency from raw document text
+        detected_currency = "INR"
+        if any(sym in raw_text_lower for sym in ['₹', 'rs', 'inr', 'rupees', 'blink commerce', 'pvt ltd', 'limited', 'delhi', 'mumbai', 'bengaluru', 'india', 'gurugram', 'noida']):
+            detected_currency = "INR"
+        elif any(sym in raw_text_lower for sym in ['€', 'eur', 'euro']):
+            detected_currency = "EUR"
+        elif any(sym in raw_text_lower for sym in ['£', 'gbp', 'pound']):
+            detected_currency = "GBP"
+        elif any(sym in raw_text_lower for sym in ['ca$', 'cad']):
+            detected_currency = "CAD"
+        elif any(sym in raw_text_lower for sym in ['a$', 'aud']):
+            detected_currency = "AUD"
+        elif '$' in raw_text_lower:
+            detected_currency = "USD"
+
         confidence = 0.80 if amount is not None else 0.45
 
         return ParsedReceiptData(
             title=title,
             amount=amount,
+            currency=detected_currency,
             category=category,
             transaction_date=trans_date,
             type=tx_type,

@@ -7,6 +7,7 @@ from app.models.user import User
 from app.models.income import Income
 from app.schemas.income import IncomeCreate, IncomeUpdate, IncomeResponse
 from app.routers.deps import get_current_user
+from app.services.exchange_rate import ExchangeRateService
 
 router = APIRouter(prefix="/income", tags=["Income"])
 
@@ -15,18 +16,25 @@ router = APIRouter(prefix="/income", tags=["Income"])
     "",
     response_model=IncomeResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Create a new income entry"
+    summary="Create a new income entry with dynamic currency conversion"
 )
 def create_income(
     income_in: IncomeCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Create a new income record associated with the authenticated user."""
+    """Create a new income record associated with the authenticated user, converting foreign currencies to USD via live rates."""
+    input_currency = (income_in.currency or "USD").upper().strip()
+    raw_amount = float(income_in.amount)
+    usd_amount, rate = ExchangeRateService.convert_to_usd(raw_amount, input_currency)
+
     new_income = Income(
         user_id=current_user.id,
         source=income_in.source,
-        amount=income_in.amount,
+        amount=usd_amount,
+        currency=input_currency,
+        original_amount=raw_amount,
+        exchange_rate=rate,
         description=income_in.description,
         transaction_date=income_in.transaction_date
     )
@@ -106,6 +114,18 @@ def update_income_record(
         )
 
     update_data = income_in.model_dump(exclude_unset=True)
+
+    if "amount" in update_data or "currency" in update_data:
+        cur = (update_data.get("currency") or income.currency or "USD").upper().strip()
+        raw_amt = float(update_data.get("amount") if "amount" in update_data else (income.original_amount or income.amount))
+        usd_amt, rate = ExchangeRateService.convert_to_usd(raw_amt, cur)
+        income.currency = cur
+        income.original_amount = raw_amt
+        income.exchange_rate = rate
+        income.amount = usd_amt
+        update_data.pop("amount", None)
+        update_data.pop("currency", None)
+
     for field, value in update_data.items():
         setattr(income, field, value)
 

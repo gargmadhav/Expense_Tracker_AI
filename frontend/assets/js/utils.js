@@ -3,8 +3,13 @@
 const Utils = {
   // Format numbers to currency format (e.g. $1,250.00 or ₹1,250.00)
   formatCurrency: (amount, currencyCode = 'USD') => {
-    const symbols = { USD: '$', EUR: '€', GBP: '£', INR: '₹', CAD: 'CA$' };
-    const symbol = symbols[currencyCode] || '$';
+    const symbols = {
+      USD: '$', INR: '₹', EUR: '€', GBP: '£', CAD: 'CA$',
+      AUD: 'A$', JPY: '¥', CHF: 'Fr', CNY: '¥', SGD: 'S$',
+      AED: 'AED ', SAR: 'SAR ', NZD: 'NZ$', ZAR: 'R ', BRL: 'R$', KRW: '₩'
+    };
+    const code = (currencyCode || 'USD').toUpperCase();
+    const symbol = symbols[code] || (code + ' ');
     const num = parseFloat(amount || 0);
     return symbol + num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   },

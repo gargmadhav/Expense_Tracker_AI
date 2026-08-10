@@ -7,7 +7,7 @@ from app.core.config import settings
 from app.middleware.error_handler import register_error_handlers
 from app.middleware.request_logger import RequestTimingMiddleware
 from app.middleware.security_headers import SecurityHeadersMiddleware
-from app.routers import auth, expenses, income, budgets, dashboard, analytics, notifications, ai, ocr
+from app.routers import auth, expenses, income, budgets, dashboard, analytics, notifications, ai, ocr, exchange_rates
 
 # Configure clean logging format for backend server
 logging.basicConfig(
@@ -54,7 +54,8 @@ def create_application() -> FastAPI:
         analytics.router,
         notifications.router,
         ai.router,
-        ocr.router
+        ocr.router,
+        exchange_rates.router
     ]
     for r in routers:
         application.include_router(r)

@@ -27,6 +27,9 @@ class Income(Base):
     )
     source: Mapped[str] = mapped_column(String(255), nullable=False)
     amount: Mapped[float] = mapped_column(Float, nullable=False)
+    currency: Mapped[str] = mapped_column(String(10), default="USD", nullable=False)
+    original_amount: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    exchange_rate: Mapped[Optional[float]] = mapped_column(Float, default=1.0, nullable=True)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     transaction_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     created_at: Mapped[datetime] = mapped_column(

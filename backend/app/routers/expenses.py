@@ -8,6 +8,7 @@ from app.models.expense import Expense
 from app.schemas.expense import ExpenseCreate, ExpenseUpdate, ExpenseResponse
 from app.routers.deps import get_current_user
 from app.services.notification import check_budget_limits_and_notify
+from app.services.exchange_rate import ExchangeRateService
 
 router = APIRouter(prefix="/expenses", tags=["Expenses"])
 
@@ -16,19 +17,26 @@ router = APIRouter(prefix="/expenses", tags=["Expenses"])
     "",
     response_model=ExpenseResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Create a new expense entry"
+    summary="Create a new expense entry with dynamic currency conversion"
 )
 def create_expense(
     expense_in: ExpenseCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Create a new expense associated with the authenticated user and check budget caps."""
+    """Create a new expense associated with the authenticated user, converting foreign currencies to USD via live rates."""
+    input_currency = (expense_in.currency or "USD").upper().strip()
+    raw_amount = float(expense_in.amount)
+    usd_amount, rate = ExchangeRateService.convert_to_usd(raw_amount, input_currency)
+
     new_expense = Expense(
         user_id=current_user.id,
         title=expense_in.title,
         category=expense_in.category,
-        amount=expense_in.amount,
+        amount=usd_amount,
+        currency=input_currency,
+        original_amount=raw_amount,
+        exchange_rate=rate,
         description=expense_in.description,
         transaction_date=expense_in.transaction_date
     )
@@ -44,8 +52,7 @@ def create_expense(
             category=new_expense.category,
             transaction_date=new_expense.transaction_date
         )
-    except Exception as e:
-        # Don't fail expense creation if notification generation encounters an issue
+    except Exception:
         pass
 
     return new_expense
@@ -121,6 +128,18 @@ def update_expense(
         )
 
     update_data = expense_in.model_dump(exclude_unset=True)
+    
+    if "amount" in update_data or "currency" in update_data:
+        cur = (update_data.get("currency") or expense.currency or "USD").upper().strip()
+        raw_amt = float(update_data.get("amount") if "amount" in update_data else (expense.original_amount or expense.amount))
+        usd_amt, rate = ExchangeRateService.convert_to_usd(raw_amt, cur)
+        expense.currency = cur
+        expense.original_amount = raw_amt
+        expense.exchange_rate = rate
+        expense.amount = usd_amt
+        update_data.pop("amount", None)
+        update_data.pop("currency", None)
+
     for field, value in update_data.items():
         setattr(expense, field, value)
 

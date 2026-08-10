@@ -159,6 +159,15 @@ const API = {
     return await this.request(`/dashboard${query}`, { method: 'GET' });
   },
 
+  /* ------------------- EXCHANGE RATES APIS ------------------- */
+  async getSupportedCurrencies() {
+    return await this.request('/exchange-rates/supported', { method: 'GET' });
+  },
+
+  async convertCurrency(amount, fromCurrency) {
+    return await this.request(`/exchange-rates/convert?amount=${encodeURIComponent(amount)}&from_currency=${encodeURIComponent(fromCurrency)}`, { method: 'GET' });
+  },
+
   /* ------------------- EXPENSES APIS ------------------- */
   async getExpenses(category = null) {
     let query = '';
@@ -176,6 +185,7 @@ const API = {
         title: expenseData.title,
         category: expenseData.category,
         amount: parseFloat(expenseData.amount),
+        currency: expenseData.currency || 'INR',
         description: expenseData.description || null,
         transaction_date: expenseData.transaction_date || expenseData.date || new Date().toISOString().split('T')[0]
       }
@@ -189,6 +199,7 @@ const API = {
         title: expenseData.title,
         category: expenseData.category,
         amount: expenseData.amount ? parseFloat(expenseData.amount) : undefined,
+        currency: expenseData.currency,
         description: expenseData.description,
         transaction_date: expenseData.transaction_date || expenseData.date
       }
@@ -212,6 +223,7 @@ const API = {
       body: {
         source: incomeData.source,
         amount: parseFloat(incomeData.amount),
+        currency: incomeData.currency || 'INR',
         description: incomeData.description || null,
         transaction_date: incomeData.transaction_date || incomeData.date || new Date().toISOString().split('T')[0]
       }
@@ -224,6 +236,7 @@ const API = {
       body: {
         source: incomeData.source,
         amount: incomeData.amount ? parseFloat(incomeData.amount) : undefined,
+        currency: incomeData.currency,
         description: incomeData.description,
         transaction_date: incomeData.transaction_date || incomeData.date
       }

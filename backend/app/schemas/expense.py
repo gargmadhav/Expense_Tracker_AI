@@ -8,6 +8,7 @@ class ExpenseCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=255, description="Title or name of the expense")
     category: str = Field(..., min_length=1, max_length=100, description="Expense category (e.g. Food, Transport, Rent)")
     amount: float = Field(..., gt=0, description="Expense amount (must be positive and greater than 0)")
+    currency: Optional[str] = Field("USD", max_length=10, description="Input currency ISO code (e.g. USD, INR, EUR, GBP)")
     description: Optional[str] = Field(None, max_length=1000, description="Optional detailed description")
     transaction_date: date = Field(default_factory=date.today, description="Date when transaction occurred")
 
@@ -24,6 +25,7 @@ class ExpenseUpdate(BaseModel):
     title: Optional[str] = Field(None, min_length=1, max_length=255)
     category: Optional[str] = Field(None, min_length=1, max_length=100)
     amount: Optional[float] = Field(None, gt=0)
+    currency: Optional[str] = Field(None, max_length=10)
     description: Optional[str] = Field(None, max_length=1000)
     transaction_date: Optional[date] = None
 
@@ -42,6 +44,9 @@ class ExpenseResponse(BaseModel):
     title: str
     category: str
     amount: float
+    currency: str = "USD"
+    original_amount: Optional[float] = None
+    exchange_rate: Optional[float] = 1.0
     description: Optional[str] = None
     transaction_date: date
     created_at: datetime

@@ -16,6 +16,7 @@ const ExpensesPage = {
   async init() {
     this.bindSearchAndFilters();
     this.bindModals();
+    this.bindCurrencyListeners();
     this.checkUrlParams();
     await this.loadExpenses();
   },
@@ -86,6 +87,45 @@ const ExpensesPage = {
     }
   },
 
+  bindCurrencyListeners() {
+    const amtInput = document.getElementById('expAmount');
+    const curSelect = document.getElementById('expCurrency');
+
+    if (amtInput && curSelect) {
+      const handler = Utils.debounce(() => this.updateLiveRatePreview(), 250);
+      amtInput.addEventListener('input', handler);
+      curSelect.addEventListener('change', () => this.updateLiveRatePreview());
+    }
+  },
+
+  async updateLiveRatePreview() {
+    const amtInput = document.getElementById('expAmount');
+    const curSelect = document.getElementById('expCurrency');
+    const previewEl = document.getElementById('expCurrencyPreview');
+    if (!amtInput || !curSelect || !previewEl) return;
+
+    const val = parseFloat(amtInput.value);
+    const cur = curSelect.value || 'USD';
+
+    if (!val || val <= 0) {
+      previewEl.textContent = '';
+      return;
+    }
+
+    if (cur === 'USD') {
+      previewEl.textContent = `${Utils.formatCurrency(val, 'USD')} USD`;
+      return;
+    }
+
+    try {
+      previewEl.textContent = 'Fetching live market rate...';
+      const data = await API.convertCurrency(val, cur);
+      previewEl.textContent = `${Utils.formatCurrency(val, cur)} ≈ ${Utils.formatCurrency(data.usd_amount, 'USD')} USD (${data.rate_display})`;
+    } catch (e) {
+      previewEl.textContent = '';
+    }
+  },
+
   applyFilters() {
     let result = [...this.state.expenses];
 
@@ -137,9 +177,10 @@ const ExpensesPage = {
 
     const startIndex = (this.state.currentPage - 1) * this.state.itemsPerPage;
     const paginatedItems = this.state.filteredExpenses.slice(startIndex, startIndex + this.state.itemsPerPage);
-    const currency = Utils.storage.get('user_profile', {}).currency || 'USD';
 
-    tableBody.innerHTML = paginatedItems.map(item => `
+    tableBody.innerHTML = paginatedItems.map(item => {
+      const isForeign = item.currency && item.currency !== 'USD' && item.original_amount;
+      return `
       <tr>
         <td>
           <div style="display: flex; align-items: center; gap: 0.75rem;">
@@ -155,7 +196,8 @@ const ExpensesPage = {
         <td><span class="category-badge">${item.category}</span></td>
         <td>${Utils.formatDate(item.transaction_date || item.date)}</td>
         <td style="font-weight: 700; color: var(--danger);">
-          -${Utils.formatCurrency(item.amount, currency)}
+          -${Utils.formatCurrency(item.amount, 'USD')}
+          ${isForeign ? `<div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 500;">(${Utils.formatCurrency(item.original_amount, item.currency)})</div>` : ''}
         </td>
         <td><span class="status-badge status-completed">completed</span></td>
         <td>
@@ -169,7 +211,8 @@ const ExpensesPage = {
           </div>
         </td>
       </tr>
-    `).join('');
+    `;
+    }).join('');
   },
 
   renderPagination() {
@@ -218,6 +261,7 @@ const ExpensesPage = {
         e.preventDefault();
         const title = document.getElementById('expTitle').value.trim();
         const amount = document.getElementById('expAmount').value;
+        const currency = document.getElementById('expCurrency') ? document.getElementById('expCurrency').value : 'INR';
         const category = document.getElementById('expCategory').value;
         const dateVal = document.getElementById('expDate').value;
         const submitBtn = form.querySelector('button[type="submit"]');
@@ -235,6 +279,7 @@ const ExpensesPage = {
           const payload = {
             title,
             amount: parseFloat(amount),
+            currency,
             category,
             transaction_date: dateVal
           };
@@ -300,6 +345,12 @@ const ExpensesPage = {
       if (result.amount !== null && result.amount !== undefined) {
         document.getElementById('expAmount').value = result.amount;
       }
+      if (result.currency) {
+        const curSelect = document.getElementById('expCurrency');
+        if (curSelect) {
+          curSelect.value = result.currency.toUpperCase();
+        }
+      }
       if (result.transaction_date) {
         document.getElementById('expDate').value = result.transaction_date;
       }
@@ -313,6 +364,7 @@ const ExpensesPage = {
         }
       }
 
+      this.updateLiveRatePreview();
       Utils.showToast(result.message || 'Receipt scanned successfully! Review details before saving.', 'success');
     } catch (e) {
       console.error('OCR Upload error:', e);
@@ -328,7 +380,10 @@ const ExpensesPage = {
     this.state.editingId = null;
     document.getElementById('expenseModalTitle').textContent = 'Add New Expense';
     document.getElementById('expenseForm').reset();
+    document.getElementById('expCurrency').value = 'INR';
     document.getElementById('expDate').value = new Date().toISOString().split('T')[0];
+    const previewEl = document.getElementById('expCurrencyPreview');
+    if (previewEl) previewEl.textContent = '';
     this.showModal('expenseModal');
   },
 
@@ -339,10 +394,19 @@ const ExpensesPage = {
     this.state.editingId = id;
     document.getElementById('expenseModalTitle').textContent = 'Edit Expense';
     document.getElementById('expTitle').value = expense.title;
-    document.getElementById('expAmount').value = expense.amount;
+    
+    if (expense.currency && expense.original_amount) {
+      document.getElementById('expCurrency').value = expense.currency;
+      document.getElementById('expAmount').value = expense.original_amount;
+    } else {
+      document.getElementById('expCurrency').value = expense.currency || 'USD';
+      document.getElementById('expAmount').value = expense.amount;
+    }
+
     document.getElementById('expCategory').value = expense.category;
     document.getElementById('expDate').value = expense.transaction_date || expense.date;
 
+    this.updateLiveRatePreview();
     this.showModal('expenseModal');
   },
 

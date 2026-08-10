@@ -7,6 +7,7 @@ class ParsedReceiptData(BaseModel):
 
     title: Optional[str] = Field(None, description="Extracted merchant, store, or income source title")
     amount: Optional[float] = Field(None, description="Extracted total monetary amount")
+    currency: Optional[str] = Field("USD", description="Detected currency ISO code, e.g. INR, EUR, GBP, USD")
     category: Optional[str] = Field(None, description="Extracted or predicted financial category")
     transaction_date: Optional[str] = Field(None, description="Extracted transaction date in YYYY-MM-DD format")
     type: str = Field("expense", description="Detected transaction type: 'expense' or 'income'")

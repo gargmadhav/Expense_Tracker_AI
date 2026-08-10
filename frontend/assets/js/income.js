@@ -3,11 +3,13 @@
 const IncomePage = {
   state: {
     incomeList: [],
+    editingId: null,
     deletingId: null
   },
 
   async init() {
     this.bindForm();
+    this.bindCurrencyListeners();
     await this.loadIncome();
   },
 
@@ -32,7 +34,7 @@ const IncomePage = {
           <td><div class="skeleton" style="height: 20px; width: 90px;"></div></td>
           <td><div class="skeleton" style="height: 20px; width: 80px;"></div></td>
           <td><div class="skeleton" style="height: 20px; width: 100px;"></div></td>
-          <td><div class="skeleton" style="height: 20px; width: 50px;"></div></td>
+          <td><div class="skeleton" style="height: 20px; width: 60px;"></div></td>
         </tr>
       `).join('');
     }
@@ -40,9 +42,47 @@ const IncomePage = {
 
   renderTotalSummary() {
     const total = (this.state.incomeList || []).reduce((acc, curr) => acc + parseFloat(curr.amount || 0), 0);
-    const currency = Utils.storage.get('user_profile', {}).currency || 'USD';
     const totalEl = document.getElementById('incomeTotalVal');
-    if (totalEl) totalEl.textContent = Utils.formatCurrency(total, currency);
+    if (totalEl) totalEl.textContent = Utils.formatCurrency(total, 'USD');
+  },
+
+  bindCurrencyListeners() {
+    const amtInput = document.getElementById('incAmount');
+    const curSelect = document.getElementById('incCurrency');
+
+    if (amtInput && curSelect) {
+      const handler = Utils.debounce(() => this.updateLiveRatePreview(), 250);
+      amtInput.addEventListener('input', handler);
+      curSelect.addEventListener('change', () => this.updateLiveRatePreview());
+    }
+  },
+
+  async updateLiveRatePreview() {
+    const amtInput = document.getElementById('incAmount');
+    const curSelect = document.getElementById('incCurrency');
+    const previewEl = document.getElementById('incCurrencyPreview');
+    if (!amtInput || !curSelect || !previewEl) return;
+
+    const val = parseFloat(amtInput.value);
+    const cur = curSelect.value || 'USD';
+
+    if (!val || val <= 0) {
+      previewEl.textContent = '';
+      return;
+    }
+
+    if (cur === 'USD') {
+      previewEl.textContent = `${Utils.formatCurrency(val, 'USD')} USD`;
+      return;
+    }
+
+    try {
+      previewEl.textContent = 'Fetching live market rate...';
+      const data = await API.convertCurrency(val, cur);
+      previewEl.textContent = `${Utils.formatCurrency(val, cur)} ≈ ${Utils.formatCurrency(data.usd_amount, 'USD')} USD (${data.rate_display})`;
+    } catch (e) {
+      previewEl.textContent = '';
+    }
   },
 
   renderTable() {
@@ -62,9 +102,9 @@ const IncomePage = {
       return;
     }
 
-    const currency = Utils.storage.get('user_profile', {}).currency || 'USD';
-
-    tbody.innerHTML = this.state.incomeList.map(item => `
+    tbody.innerHTML = this.state.incomeList.map(item => {
+      const isForeign = item.currency && item.currency !== 'USD' && item.original_amount;
+      return `
       <tr>
         <td>
           <div style="display: flex; align-items: center; gap: 0.75rem;">
@@ -80,15 +120,22 @@ const IncomePage = {
         <td><span class="category-badge">${item.source}</span></td>
         <td>${Utils.formatDate(item.transaction_date || item.date)}</td>
         <td style="font-weight: 700; color: var(--success);">
-          +${Utils.formatCurrency(item.amount, currency)}
+          +${Utils.formatCurrency(item.amount, 'USD')}
+          ${isForeign ? `<div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 500;">(${Utils.formatCurrency(item.original_amount, item.currency)})</div>` : ''}
         </td>
         <td>
-          <button class="btn btn-outline btn-sm btn-icon" onclick="IncomePage.openDeleteModal(${item.id})" title="Delete Income" style="color: var(--danger);">
-            <i class="fa-solid fa-trash-can"></i>
-          </button>
+          <div style="display: flex; gap: 0.35rem;">
+            <button class="btn btn-outline btn-sm btn-icon" onclick="IncomePage.openEditModal(${item.id})" title="Edit Income">
+              <i class="fa-solid fa-pen-to-square"></i>
+            </button>
+            <button class="btn btn-outline btn-sm btn-icon" onclick="IncomePage.openDeleteModal(${item.id})" title="Delete Income" style="color: var(--danger);">
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
+          </div>
         </td>
       </tr>
-    `).join('');
+    `;
+    }).join('');
   },
 
   bindForm() {
@@ -98,6 +145,7 @@ const IncomePage = {
         e.preventDefault();
         const source = document.getElementById('incSource').value.trim();
         const amount = document.getElementById('incAmount').value;
+        const currency = document.getElementById('incCurrency') ? document.getElementById('incCurrency').value : 'INR';
         const dateVal = document.getElementById('incDate').value;
         const descriptionEl = document.getElementById('incDescription');
         const description = descriptionEl ? descriptionEl.value.trim() : '';
@@ -113,18 +161,26 @@ const IncomePage = {
           submitBtn.disabled = true;
           submitBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Saving...`;
 
-          await API.createIncome({
+          const payload = {
             source,
             amount: parseFloat(amount),
+            currency,
             transaction_date: dateVal,
             description
-          });
+          };
 
-          Utils.showToast('Income entry created successfully!', 'success');
+          if (this.state.editingId) {
+            await API.updateIncome(this.state.editingId, payload);
+            Utils.showToast('Income entry updated successfully!', 'success');
+          } else {
+            await API.createIncome(payload);
+            Utils.showToast('Income entry created successfully!', 'success');
+          }
+
           this.closeModal('incomeModal');
           await this.loadIncome();
         } catch (err) {
-          Utils.showToast(err.message || 'Failed to create income entry.', 'danger');
+          Utils.showToast(err.message || 'Failed to save income entry.', 'danger');
         } finally {
           submitBtn.disabled = false;
           submitBtn.innerHTML = origBtnHtml;
@@ -174,6 +230,12 @@ const IncomePage = {
       if (result.amount !== null && result.amount !== undefined) {
         document.getElementById('incAmount').value = result.amount;
       }
+      if (result.currency) {
+        const curSelect = document.getElementById('incCurrency');
+        if (curSelect) {
+          curSelect.value = result.currency.toUpperCase();
+        }
+      }
       if (result.transaction_date) {
         document.getElementById('incDate').value = result.transaction_date;
       }
@@ -187,6 +249,7 @@ const IncomePage = {
         }
       }
 
+      this.updateLiveRatePreview();
       Utils.showToast(result.message || 'Document scanned successfully! Review details before saving.', 'success');
     } catch (e) {
       console.error('OCR Upload error:', e);
@@ -199,8 +262,47 @@ const IncomePage = {
   },
 
   openAddModal() {
+    this.state.editingId = null;
+    const titleEl = document.getElementById('incomeModalTitle');
+    if (titleEl) titleEl.textContent = 'Record Income Entry';
     document.getElementById('incomeForm').reset();
+    document.getElementById('incCurrency').value = 'INR';
     document.getElementById('incDate').value = new Date().toISOString().split('T')[0];
+    const previewEl = document.getElementById('incCurrencyPreview');
+    if (previewEl) previewEl.textContent = '';
+    this.showModal('incomeModal');
+  },
+
+  openEditModal(id) {
+    const item = this.state.incomeList.find(inc => inc.id == id);
+    if (!item) return;
+
+    this.state.editingId = id;
+    const titleEl = document.getElementById('incomeModalTitle');
+    if (titleEl) titleEl.textContent = 'Edit Income Entry';
+
+    document.getElementById('incSource').value = item.source;
+
+    if (item.currency && item.original_amount) {
+      document.getElementById('incCurrency').value = item.currency;
+      document.getElementById('incAmount').value = item.original_amount;
+    } else {
+      document.getElementById('incCurrency').value = item.currency || 'USD';
+      document.getElementById('incAmount').value = item.amount;
+    }
+
+    const catSelect = document.getElementById('incCategory');
+    if (catSelect) {
+      const opt = Array.from(catSelect.options).find(o => o.value.toLowerCase() === (item.source || '').toLowerCase());
+      if (opt) catSelect.value = opt.value;
+    }
+
+    document.getElementById('incDate').value = item.transaction_date || item.date || new Date().toISOString().split('T')[0];
+    if (document.getElementById('incDescription')) {
+      document.getElementById('incDescription').value = item.description || '';
+    }
+
+    this.updateLiveRatePreview();
     this.showModal('incomeModal');
   },
 
