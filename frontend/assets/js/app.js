@@ -91,16 +91,26 @@ const App = {
 
   // Populate User Avatar and Profile text in top header & sidebar
   loadUserProfileInfo() {
-    const profile = Utils.storage.get('user_profile', { name: 'Alex Mercer', email: 'alex.mercer@example.com' });
-    const userNameElements = document.querySelectorAll('.user-display-name');
+    const profile = Utils.storage.get('user_profile', { name: '', email: '' });
+    const userNameElements = document.querySelectorAll('.user-display-name, .user-profile-name, .user-name');
     const userRoleElements = document.querySelectorAll('.user-display-role');
     const userAvatarElements = document.querySelectorAll('.user-display-avatar');
+    const userFirstNameElements = document.querySelectorAll('.user-first-name');
 
-    userNameElements.forEach(el => el.textContent = profile.name);
-    userRoleElements.forEach(el => el.textContent = profile.email);
+    const fullName = (profile.name || profile.full_name || '').trim();
+    const firstName = fullName ? fullName.split(' ')[0] : 'User';
+    const displayName = fullName || 'User';
+
+    userNameElements.forEach(el => el.textContent = displayName);
+    userRoleElements.forEach(el => el.textContent = profile.email || '');
+    userFirstNameElements.forEach(el => el.textContent = firstName);
+
     userAvatarElements.forEach(el => {
-      const initials = profile.name.split(' ').map(n => n[0]).join('').toUpperCase();
-      el.textContent = initials || 'AM';
+      const parts = displayName.split(' ').filter(Boolean);
+      const initials = parts.length > 1 
+        ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+        : parts[0] ? parts[0].substring(0, 2).toUpperCase() : 'U';
+      el.textContent = initials || 'U';
     });
   },
 

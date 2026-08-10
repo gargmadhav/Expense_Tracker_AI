@@ -8,10 +8,10 @@ const ProfilePage = {
 
   loadProfileData() {
     const profile = Utils.storage.get('user_profile', {
-      name: 'Alex Mercer',
-      email: 'alex.mercer@example.com',
+      name: '',
+      email: '',
       currency: 'USD',
-      phone: '+1 (555) 234-5678'
+      phone: ''
     });
 
     const nameInput = document.getElementById('profileNameInput');

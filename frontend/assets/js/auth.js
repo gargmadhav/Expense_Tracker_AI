@@ -38,8 +38,15 @@ const Auth = {
             currency: 'USD'
           });
           
-          const userNameEls = document.querySelectorAll('.user-profile-name, .user-name');
-          userNameEls.forEach(el => el.textContent = user.full_name);
+          if (typeof App !== 'undefined' && App.loadUserProfileInfo) {
+            App.loadUserProfileInfo();
+          } else {
+            const userNameEls = document.querySelectorAll('.user-profile-name, .user-name, .user-display-name');
+            userNameEls.forEach(el => el.textContent = user.full_name);
+            const userFirstNameEls = document.querySelectorAll('.user-first-name');
+            const firstName = (user.full_name || 'User').trim().split(' ')[0] || 'User';
+            userFirstNameEls.forEach(el => el.textContent = firstName);
+          }
         }
       } catch (e) {
         console.warn('Session validation warning:', e.message);
