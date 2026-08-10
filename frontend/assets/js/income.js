@@ -134,18 +134,67 @@ const IncomePage = {
 
     const confirmDeleteBtn = document.getElementById('confirmDeleteIncomeBtn');
     if (confirmDeleteBtn) {
-      confirmDeleteBtn.addEventListener('click', async () => {
+      confirmDeleteBtn.onclick = async () => {
         if (this.state.deletingId) {
+          const targetId = this.state.deletingId;
           try {
-            await API.deleteIncome(this.state.deletingId);
+            confirmDeleteBtn.disabled = true;
+            await API.deleteIncome(targetId);
             Utils.showToast('Income entry removed.', 'info');
+            this.state.deletingId = null;
             this.closeModal('deleteIncomeModal');
             await this.loadIncome();
           } catch (err) {
             Utils.showToast(err.message || 'Failed to delete income.', 'danger');
+          } finally {
+            confirmDeleteBtn.disabled = false;
           }
         }
-      });
+      };
+    }
+  },
+
+  async handleOcrUpload(event) {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+
+    const initialEl = document.getElementById('incOcrInitialState');
+    const scanningEl = document.getElementById('incOcrScanningState');
+
+    try {
+      if (initialEl) initialEl.style.display = 'none';
+      if (scanningEl) scanningEl.style.display = 'flex';
+      Utils.showToast('Scanning income document with Tesseract OCR...', 'info');
+
+      const result = await API.scanReceipt(file);
+
+      if (result.title) {
+        document.getElementById('incSource').value = result.title;
+      }
+      if (result.amount !== null && result.amount !== undefined) {
+        document.getElementById('incAmount').value = result.amount;
+      }
+      if (result.transaction_date) {
+        document.getElementById('incDate').value = result.transaction_date;
+      }
+      if (result.category) {
+        const catSelect = document.getElementById('incCategory');
+        if (catSelect) {
+          const matchingOption = Array.from(catSelect.options).find(opt => opt.value.toLowerCase() === result.category.toLowerCase());
+          if (matchingOption) {
+            catSelect.value = matchingOption.value;
+          }
+        }
+      }
+
+      Utils.showToast(result.message || 'Document scanned successfully! Review details before saving.', 'success');
+    } catch (e) {
+      console.error('OCR Upload error:', e);
+      Utils.showToast(e.message || 'Failed to scan document. Please enter details manually.', 'danger');
+    } finally {
+      if (initialEl) initialEl.style.display = 'flex';
+      if (scanningEl) scanningEl.style.display = 'none';
+      event.target.value = '';
     }
   },
 

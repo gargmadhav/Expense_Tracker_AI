@@ -25,6 +25,11 @@ class Settings(BaseSettings):
     GROQ_API_KEY: str = ""
     GROQ_MODEL: str = "llama-3.3-70b-versatile"
 
+    # OCR Settings
+    TESSERACT_CMD_PATH: str | None = None
+    ALLOWED_OCR_EXTENSIONS: list[str] = ["png", "jpg", "jpeg", "webp", "pdf", "bmp", "tiff"]
+    MAX_OCR_FILE_SIZE_MB: int = 10
+
     # Environment
     ENVIRONMENT: str = "development"
 

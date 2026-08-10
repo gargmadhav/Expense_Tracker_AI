@@ -260,18 +260,67 @@ const ExpensesPage = {
 
     const confirmDeleteBtn = document.getElementById('confirmDeleteExpenseBtn');
     if (confirmDeleteBtn) {
-      confirmDeleteBtn.addEventListener('click', async () => {
+      confirmDeleteBtn.onclick = async () => {
         if (this.state.deletingId) {
+          const targetId = this.state.deletingId;
           try {
-            await API.deleteExpense(this.state.deletingId);
+            confirmDeleteBtn.disabled = true;
+            await API.deleteExpense(targetId);
             Utils.showToast('Expense record deleted.', 'info');
+            this.state.deletingId = null;
             this.closeModal('deleteModal');
             await this.loadExpenses();
           } catch (err) {
             Utils.showToast(err.message || 'Failed to delete expense.', 'danger');
+          } finally {
+            confirmDeleteBtn.disabled = false;
           }
         }
-      });
+      };
+    }
+  },
+
+  async handleOcrUpload(event) {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+
+    const initialEl = document.getElementById('expOcrInitialState');
+    const scanningEl = document.getElementById('expOcrScanningState');
+
+    try {
+      if (initialEl) initialEl.style.display = 'none';
+      if (scanningEl) scanningEl.style.display = 'flex';
+      Utils.showToast('Scanning receipt image with Tesseract OCR...', 'info');
+
+      const result = await API.scanReceipt(file);
+
+      if (result.title) {
+        document.getElementById('expTitle').value = result.title;
+      }
+      if (result.amount !== null && result.amount !== undefined) {
+        document.getElementById('expAmount').value = result.amount;
+      }
+      if (result.transaction_date) {
+        document.getElementById('expDate').value = result.transaction_date;
+      }
+      if (result.category) {
+        const catSelect = document.getElementById('expCategory');
+        if (catSelect) {
+          const matchingOption = Array.from(catSelect.options).find(opt => opt.value.toLowerCase() === result.category.toLowerCase());
+          if (matchingOption) {
+            catSelect.value = matchingOption.value;
+          }
+        }
+      }
+
+      Utils.showToast(result.message || 'Receipt scanned successfully! Review details before saving.', 'success');
+    } catch (e) {
+      console.error('OCR Upload error:', e);
+      Utils.showToast(e.message || 'Failed to scan receipt. Please enter details manually.', 'danger');
+    } finally {
+      if (initialEl) initialEl.style.display = 'flex';
+      if (scanningEl) scanningEl.style.display = 'none';
+      event.target.value = '';
     }
   },
 

@@ -189,6 +189,22 @@
       </div>
       <form id="incomeForm">
         <div class="modal-body">
+          <!-- OCR Scan Document Dropzone -->
+          <div class="ocr-upload-box" style="border: 2px dashed var(--border-color, #cbd5e1); border-radius: 8px; padding: 0.85rem; text-align: center; background: var(--bg-hover, #f8fafc); margin-bottom: 1rem; position: relative;">
+            <input type="file" id="incOcrInput" accept="image/*,.pdf" style="display: none;" onchange="IncomePage.handleOcrUpload(event)">
+            <div id="incOcrInitialState" style="display: flex; align-items: center; justify-content: center; gap: 0.75rem; cursor: pointer;" onclick="document.getElementById('incOcrInput').click()">
+              <i class="fa-solid fa-cloud-arrow-up" style="font-size: 1.5rem; color: var(--success);"></i>
+              <div style="text-align: left;">
+                <div style="font-weight: 600; font-size: 0.85rem;">Scan Payslip / Document (Tesseract OCR)</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">Click to upload income document or PDF to auto-fill</div>
+              </div>
+            </div>
+            <div id="incOcrScanningState" style="display: none; align-items: center; justify-content: center; gap: 0.5rem; padding: 0.25rem 0;">
+              <i class="fa-solid fa-spinner fa-spin" style="color: var(--success);"></i>
+              <span style="font-size: 0.85rem; font-weight: 500;">Scanning document text with OCR AI...</span>
+            </div>
+          </div>
+
           <div class="form-group">
             <label class="form-label" for="incSource">Income Source Title *</label>
             <input type="text" id="incSource" class="form-control" placeholder="e.g. Monthly Salary or Client Work" required>
@@ -254,10 +270,10 @@
   <div class="toast-container"></div>
 
   <!-- Scripts -->
-  <script src="assets/js/utils.js"></script>
-  <script src="assets/js/api.js"></script>
-  <script src="assets/js/auth.js"></script>
-  <script src="assets/js/app.js"></script>
-  <script src="assets/js/income.js"></script>
+  <script src="assets/js/utils.js?v=1.1.0"></script>
+  <script src="assets/js/api.js?v=1.1.0"></script>
+  <script src="assets/js/auth.js?v=1.1.0"></script>
+  <script src="assets/js/app.js?v=1.1.0"></script>
+  <script src="assets/js/income.js?v=1.1.0"></script>
 </body>
 </html>

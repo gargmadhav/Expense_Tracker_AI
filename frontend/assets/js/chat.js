@@ -3,7 +3,7 @@
 const ChatPage = {
   state: {
     messages: [
-      { sender: 'ai', text: 'Hello Alex! I am your AI Financial Assistant. Ask me anything about your monthly spending, savings goals, or budget optimization!', time: '10:00 AM' }
+      { sender: 'ai', text: 'Hello! I am your Smart Expense AI Assistant. Ask me anything about your monthly spending, savings goals, category budgets, or financial advice!', time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
     ]
   },
 
@@ -61,13 +61,13 @@ const ChatPage = {
       const aiMsg = {
         sender: 'ai',
         text: response.response,
-        time: response.timestamp
+        time: response.timestamp || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
       this.state.messages.push(aiMsg);
       this.renderMessages();
     } catch (e) {
       this.hideTypingIndicator();
-      Utils.showToast('Failed to reach AI assistant', 'danger');
+      Utils.showToast(e.message || 'Failed to reach AI assistant', 'danger');
     }
   },
 
@@ -75,16 +75,20 @@ const ChatPage = {
     const container = document.getElementById('chatMessagesContainer');
     if (!container) return;
 
+    const profile = Utils.storage.get('user_profile', { name: 'User' });
+    const userInitials = (profile.name || 'U').split(' ').map(n => n[0]).join('').toUpperCase() || 'U';
+
     container.innerHTML = this.state.messages.map(msg => {
       const isUser = msg.sender === 'user';
+      const formattedText = (msg.text || '').replace(/\n/g, '<br>');
       return `
         <div class="message-bubble ${isUser ? 'user-message' : ''}">
           <div class="message-avatar ${isUser ? 'user-avatar' : 'ai-avatar'}">
-            ${isUser ? 'AM' : '<i class="fa-solid fa-robot"></i>'}
+            ${isUser ? userInitials : '<i class="fa-solid fa-robot"></i>'}
           </div>
           <div>
             <div class="message-content">
-              ${msg.text}
+              ${formattedText}
             </div>
             <div class="message-time">${msg.time}</div>
           </div>

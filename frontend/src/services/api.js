@@ -34,10 +34,10 @@ const API = {
     const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
     const url = `${API_BASE_URL}${cleanEndpoint}`;
     
-    const headers = {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    };
+    const headers = { ...options.headers };
+    if (!(options.body instanceof FormData)) {
+      headers['Content-Type'] = 'application/json';
+    }
 
     const token = this.getToken();
     if (token) {
@@ -49,7 +49,7 @@ const API = {
       headers,
     };
 
-    if (options.body && typeof options.body === 'object') {
+    if (options.body && typeof options.body === 'object' && !(options.body instanceof FormData)) {
       config.body = JSON.stringify(options.body);
     }
 
@@ -350,6 +350,17 @@ const API = {
     return await this.request('/ai/chat', {
       method: 'POST',
       body: { message: messageText }
+    });
+  },
+
+  /* ------------------- OCR BILL & RECEIPT SCANNER APIS ------------------- */
+  async scanReceipt(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    return await this.request('/ocr/scan-receipt', {
+      method: 'POST',
+      body: formData
     });
   }
 };

@@ -24,23 +24,33 @@ class AIService:
         current_month = today.month
         current_year = today.year
 
+        # Lifetime Total Income across all months
+        lifetime_income = db.query(func.coalesce(func.sum(Income.amount), 0.0)).filter(
+            Income.user_id == user_id
+        ).scalar() or 0.0
+
+        # Lifetime Total Expense across all months
+        lifetime_expense = db.query(func.coalesce(func.sum(Expense.amount), 0.0)).filter(
+            Expense.user_id == user_id
+        ).scalar() or 0.0
+
         # Total Income for current month
-        total_income = db.query(func.coalesce(func.sum(Income.amount), 0.0)).filter(
+        monthly_income = db.query(func.coalesce(func.sum(Income.amount), 0.0)).filter(
             Income.user_id == user_id,
             extract('month', Income.transaction_date) == current_month,
             extract('year', Income.transaction_date) == current_year
         ).scalar() or 0.0
 
-        # Total Expense for current month
-        total_expense = db.query(func.coalesce(func.sum(Expense.amount), 0.0)).filter(
+        # Total Expense for current month (Fixed bug: Expense.transaction_date filter)
+        monthly_expense = db.query(func.coalesce(func.sum(Expense.amount), 0.0)).filter(
             Expense.user_id == user_id,
             extract('month', Expense.transaction_date) == current_month,
             extract('year', Expense.transaction_date) == current_year
         ).scalar() or 0.0
 
-        balance = total_income - total_expense
+        net_balance = lifetime_income - lifetime_expense
 
-        # Category Breakdown
+        # Category Breakdown for current month
         category_rows = db.query(
             Expense.category,
             func.sum(Expense.amount).label("cat_total")
@@ -71,19 +81,29 @@ class AIService:
                 "is_exceeded": spent > b.monthly_limit
             })
 
-        # Recent Transactions
+        # Recent Expense Transactions
         recent_expenses = db.query(Expense).filter(Expense.user_id == user_id)\
-            .order_by(Expense.transaction_date.desc()).limit(5).all()
-        recent_txs = [{"title": e.title, "category": e.category, "amount": e.amount} for e in recent_expenses]
+            .order_by(Expense.transaction_date.desc(), Expense.id.desc()).limit(5).all()
+        recent_exp_txs = [{"title": e.title, "category": e.category, "amount": round(e.amount, 2), "date": str(e.transaction_date)} for e in recent_expenses]
+
+        # Recent Income Transactions (Added for full Chatbot AI awareness)
+        recent_income = db.query(Income).filter(Income.user_id == user_id)\
+            .order_by(Income.transaction_date.desc(), Income.id.desc()).limit(5).all()
+        recent_inc_txs = [{"source": i.source, "amount": round(i.amount, 2), "date": str(i.transaction_date)} for i in recent_income]
 
         return {
             "period": f"{today.strftime('%B')} {current_year}",
-            "total_income": round(total_income, 2),
-            "total_expense": round(total_expense, 2),
-            "net_balance": round(balance, 2),
+            "total_income": round(monthly_income, 2),
+            "total_expense": round(monthly_expense, 2),
+            "current_month_income": round(monthly_income, 2),
+            "current_month_expense": round(monthly_expense, 2),
+            "total_lifetime_income": round(lifetime_income, 2),
+            "total_lifetime_expense": round(lifetime_expense, 2),
+            "net_balance": round(net_balance, 2),
             "category_breakdown": category_breakdown,
             "budgets": budget_status,
-            "recent_expenses": recent_txs
+            "recent_expenses": recent_exp_txs,
+            "recent_income_sources": recent_inc_txs
         }
 
     @classmethod
@@ -148,15 +168,22 @@ class AIService:
         if any(g in prompt_lower for g in ['hello', 'hi', 'hey', 'greetings']):
             reply = (
                 f"Hello! I am your Smart Expense AI Advisor. Based on your current records for {financial_context['period']}, "
-                f"your total income is ${financial_context['total_income']:.2f} and your net balance is ${financial_context['net_balance']:.2f}. "
-                "How can I assist your financial planning today?"
+                f"your current month income is ${financial_context['current_month_income']:.2f} (lifetime income: ${financial_context['total_lifetime_income']:.2f}) "
+                f"and your net balance is ${financial_context['net_balance']:.2f}. How can I assist your financial planning today?"
+            )
+        elif 'income' in prompt_lower or 'salary' in prompt_lower or 'earnings' in prompt_lower:
+            inc_sources = ", ".join([f"{s['source']}: ${s['amount']:.2f}" for s in financial_context.get('recent_income_sources', [])])
+            sources_str = f" Recent entries: {inc_sources}." if inc_sources else ""
+            reply = (
+                f"Your total lifetime income recorded is ${financial_context['total_lifetime_income']:.2f}, with ${financial_context['current_month_income']:.2f} "
+                f"recorded for {financial_context['period']}.{sources_str}"
             )
         elif 'food' in prompt_lower or 'grocer' in prompt_lower or 'dining' in prompt_lower:
             food_spent = (
                 financial_context['category_breakdown'].get('Groceries', 0.0) +
                 financial_context['category_breakdown'].get('Food & Dining', 0.0)
             )
-            reply = f"You have spent ${food_spent:.2f} on Food & Groceries for {financial_context['period']} out of your ${financial_context['total_income']:.2f} total income."
+            reply = f"You have spent ${food_spent:.2f} on Food & Groceries for {financial_context['period']} out of your ${financial_context['current_month_income']:.2f} monthly income."
         elif 'budget' in prompt_lower:
             exceeded = [b['category'] for b in financial_context['budgets'] if b['is_exceeded']]
             if exceeded:
@@ -172,9 +199,10 @@ class AIService:
             )
         else:
             reply = (
-                f"I have analyzed your financial records for {financial_context['period']}. Your total income is "
-                f"${financial_context['total_income']:.2f}, total expenses are ${financial_context['total_expense']:.2f}, "
-                f"and net balance is ${financial_context['net_balance']:.2f}. Ask me anything about your categories, budgets, or savings targets!"
+                f"I have analyzed your financial records for {financial_context['period']}. Your current month income is "
+                f"${financial_context['current_month_income']:.2f} (lifetime total: ${financial_context['total_lifetime_income']:.2f}), "
+                f"monthly expenses are ${financial_context['current_month_expense']:.2f}, and net balance is ${financial_context['net_balance']:.2f}. "
+                "Ask me anything about your income, categories, budgets, or savings targets!"
             )
 
         return AIChatResponse(response=reply, timestamp=now_str)
